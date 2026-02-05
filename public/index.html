@@ -87,10 +87,16 @@
 
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
 
+        .save-status {
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            color: #666;
+            font-style: italic;
+        }
+
         .file-ops {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
             border-top: 1px solid #333;
             padding-top: 15px;
         }
@@ -125,10 +131,13 @@
             <div class="key">B <b>X</b></div>
             <div class="key">X <b>S</b></div>
             <div class="key">Y <b>A</b></div>
+            <div class="key">MIC <b>R</b></div>
             <div class="key">L / R <b>Q / W</b></div>
             <div class="key">START <b>ENTER</b></div>
             <div class="key">SELECT <b>SHIFT</b></div>
         </div>
+
+        <div id="save-info" class="save-status">Waiting for ROM...</div>
 
         <div class="file-ops">
             <button id="export-btn">📤 Export .sav File</button>
@@ -147,6 +156,7 @@
             const syncBtn = document.getElementById('sync-btn');
             const exportBtn = document.getElementById('export-btn');
             const importBtn = document.getElementById('import-btn');
+            const saveInfo = document.getElementById('save-info');
             
             let currentFileName = "";
             let currentSaveKey = "";
@@ -159,7 +169,6 @@
                 }
             };
 
-            // Full Bypass for ALL Function Keys (F1-F12)
             window.addEventListener('keydown', (e) => {
                 if (e.keyCode >= 112 && e.keyCode <= 123) e.stopImmediatePropagation(); 
             }, true);
@@ -167,18 +176,18 @@
             loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
             importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
 
-            // 1. Sync Logic (Virtual Memory -> Browser Storage)
             syncBtn.onclick = () => {
                 syncBtn.blur();
-                if (!currentSaveKey) return alert("Load a game first!");
+                if (!currentSaveKey) return;
                 try {
                     const data = player.emscripten.FS.readFile('/save.sav');
                     localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                    alert("Synced! Your progress is safe in the browser.");
+                    saveInfo.innerText = "Browser save updated!";
+                    saveInfo.style.color = "#00ff88";
+                    alert("Synced! Browser storage updated.");
                 } catch(e) { alert("Save in-game first!"); }
             };
 
-            // 2. Export Logic (Virtual Memory -> PC Download)
             exportBtn.onclick = () => {
                 exportBtn.blur();
                 try {
@@ -192,19 +201,18 @@
                 } catch(e) { alert("No save data found to export."); }
             };
 
-            // 3. Import Logic (PC File -> Virtual Memory & Browser Storage)
             saveIn.onchange = (e) => {
                 const file = e.target.files[0];
-                if (!file || !currentSaveKey) return alert("Load the ROM before importing its save!");
+                if (!file || !currentSaveKey) return alert("Load the ROM before importing!");
                 
                 const reader = new FileReader();
                 reader.onload = () => {
                     const uint8Array = new Uint8Array(reader.result);
-                    // Inject into active emulator
                     player.emscripten.FS.writeFile('/save.sav', uint8Array);
-                    // Also update browser storage so it persists
                     localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
-                    alert("Save imported! Restart the game to load it.");
+                    saveInfo.innerText = "External save imported & loaded!";
+                    saveInfo.style.color = "#00ff88";
+                    alert("Save imported! Please restart the game to see changes.");
                 };
                 reader.readAsArrayBuffer(file);
             };
@@ -219,9 +227,15 @@
                     const url = URL.createObjectURL(file);
                     const savedData = localStorage.getItem(currentSaveKey);
                     await player.loadURL(url);
+                    
                     if (savedData) {
                         const uint8Array = new Uint8Array(JSON.parse(savedData));
                         player.emscripten.FS.writeFile('/save.sav', uint8Array);
+                        saveInfo.innerText = "Browser save detected & loaded";
+                        saveInfo.style.color = "#00ff88";
+                    } else {
+                        saveInfo.innerText = "No browser save found";
+                        saveInfo.style.color = "#888";
                     }
                     forceScale();
                 } catch (err) { console.error(err); }
