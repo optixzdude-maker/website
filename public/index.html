@@ -3,96 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>College Essay Helper</title>
+    <title>NDS Ultra Scaler</title>
     <style>
-        body {
-            background-color: #121212;
-            color: #e0e0e0;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-
-        #emu-wrapper {
-            width: 100%;
-            background: #000;
-            border: 10px solid #2a2a2a;
-            border-radius: 12px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-            overflow: hidden;
-            transition: max-width 0.2s ease-in-out;
-        }
-
-        /* Standard DS View */
-        .vertical { aspect-ratio: 256 / 384; max-width: 450px; }
+        body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
         
-        /* Side-by-Side View */
+        #emu-wrapper { width: 100%; background: #000; border: 10px solid #2a2a2a; border-radius: 12px; overflow: hidden; transition: all 0.2s ease; display: flex; }
+        .vertical { aspect-ratio: 256 / 384; max-width: 450px; }
         .horizontal { aspect-ratio: 512 / 192; max-width: 850px; }
 
-        desmond-player {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
+        desmond-player { width: 100%; height: 100%; display: block; }
 
-        .ui-panel {
-            margin-top: 20px;
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
-        }
-
-        .status {
-            font-size: 0.9rem;
-            color: #00ff88;
-            margin-bottom: 15px;
-            font-weight: bold;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-
-        button {
-            background: #333;
-            color: white;
-            border: 1px solid #444;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        button:hover { background: #444; }
-
-        .controls-card {
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: 10px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            border: 1px solid #333;
-        }
-
-        .key {
-            background: #2d2d2d;
-            padding: 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-        }
-
+        .ui-panel { margin-top: 20px; width: 100%; max-width: 500px; text-align: center; }
+        .status { font-size: 0.9rem; color: #00ff88; margin-bottom: 15px; font-weight: bold; }
+        .button-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        button { background: #333; color: white; border: 1px solid #444; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        
+        .controls-card { background: #1e1e1e; padding: 15px; border-radius: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border: 1px solid #333; }
+        .key { background: #2d2d2d; padding: 6px; border-radius: 4px; font-size: 0.75rem; }
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
     </style>
 </head>
@@ -104,20 +31,18 @@
 
     <div class="ui-panel">
         <div class="status" id="status-text">Engine Ready</div>
-
         <div class="button-group">
             <input type="file" id="file-selector" accept=".nds" style="display:none">
             <button onclick="document.getElementById('file-selector').click()">📁 Load ROM</button>
             <button id="layout-btn">↔️ Toggle Layout</button>
         </div>
-
         <div class="controls-card">
             <div class="key">DPAD <b>ARROWS</b></div>
             <div class="key">A <b>Z</b></div>
             <div class="key">B <b>X</b></div>
             <div class="key">X <b>S</b></div>
             <div class="key">Y <b>A</b></div>
-            <div class="key">L / R <b>Q / W</b></div>
+            <div class="key">L/R <b>Q/W</b></div>
             <div class="key">START <b>ENTER</b></div>
             <div class="key">SELECT <b>SHIFT</b></div>
             <div class="key">MIC <b>R</b></div>
@@ -131,66 +56,66 @@
             const player = document.getElementById('player');
             const wrapper = document.getElementById('emu-wrapper');
             const status = document.getElementById('status-text');
-            const layoutBtn = document.getElementById('layout-btn');
             let isHorizontal = false;
 
-            const applyInternalStyles = () => {
-                if (player.shadowRoot) {
-                    let styleTag = player.shadowRoot.querySelector('#custom-emu-style');
-                    if (!styleTag) {
-                        styleTag = document.createElement('style');
-                        styleTag.id = 'custom-emu-style';
-                        player.shadowRoot.appendChild(styleTag);
-                    }
-                    
-                    // The "flex: 1" ensures both screens share the space equally
-                    styleTag.textContent = `
-                        #container { 
-                            display: flex !important; 
-                            flex-direction: ${isHorizontal ? 'row' : 'column'} !important; 
-                            width: 100% !important; 
-                            height: 100% !important; 
-                        }
-                        canvas { 
-                            flex: 1 !important;
-                            width: ${isHorizontal ? '50%' : '100%'} !important; 
-                            height: ${isHorizontal ? '100%' : '50%'} !important; 
-                            object-fit: contain; 
-                            image-rendering: pixelated;
-                            display: block !important;
-                        }
-                    `;
+            // This function enforces the CSS inside the shadow DOM even if the engine tries to change it
+            const enforceStyles = () => {
+                const root = player.shadowRoot;
+                if (!root) return;
+
+                const container = root.querySelector('#container');
+                const canvases = root.querySelectorAll('canvas');
+
+                if (container) {
+                    container.style.display = 'flex';
+                    container.style.flexDirection = isHorizontal ? 'row' : 'column';
+                    container.style.width = '100%';
+                    container.style.height = '100%';
                 }
+
+                canvases.forEach(canvas => {
+                    canvas.style.flex = '1';
+                    canvas.style.width = isHorizontal ? '50%' : '100%';
+                    canvas.style.height = isHorizontal ? '100%' : '50%';
+                    canvas.style.imageRendering = 'pixelated';
+                    canvas.style.objectFit = 'contain';
+                    canvas.style.display = 'block';
+                });
             };
 
-            layoutBtn.onclick = () => {
+            // Watch for any changes inside the emulator and re-apply our styles immediately
+            const observer = new MutationObserver(enforceStyles);
+            
+            // Start the observer once the shadowRoot is available
+            const initObserver = () => {
+                if (player.shadowRoot) {
+                    observer.observe(player.shadowRoot, { childList: true, subtree: true, attributes: true });
+                    enforceStyles();
+                } else {
+                    setTimeout(initObserver, 100);
+                }
+            };
+            initObserver();
+
+            document.getElementById('layout-btn').onclick = () => {
                 isHorizontal = !isHorizontal;
                 wrapper.className = isHorizontal ? 'horizontal' : 'vertical';
-                applyInternalStyles();
+                enforceStyles();
             };
 
             document.getElementById('file-selector').onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
                 status.innerText = "Loading " + file.name + "...";
                 try {
                     const url = URL.createObjectURL(file);
                     await player.loadURL(url);
-                    // Force styles twice to ensure the internal canvases exist
-                    applyInternalStyles();
-                    setTimeout(applyInternalStyles, 100); 
                     status.innerText = "Running: " + file.name;
-                } catch (err) {
-                    status.innerText = "Error loading ROM.";
-                }
+                    enforceStyles();
+                } catch (err) { status.innerText = "Error loading ROM."; }
             };
 
-            // Maintain styling during interactions
-            player.onclick = () => {
-                player.focus();
-                applyInternalStyles();
-            };
+            player.onclick = () => { player.focus(); enforceStyles(); };
         }
     </script>
 </body>
