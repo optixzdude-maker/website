@@ -51,17 +51,19 @@
   </footer>
 
   <script src="desmond.min.js"></script>
-  <script>
-    const dsPlayer = document.getElementById("player");
-    const input = document.getElementById("romInput");
+<script>
+  const input = document.getElementById("romInput");
 
-    input.addEventListener("change", () => {
-      const file = input.files[0];
-      if (file) {
-        player.loadFile(file);
-      }
-    });
-  </script>
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
+    if (!file) return;
+
+    const buffer = await file.arrayBuffer();
+
+    // Desmond global API
+    window.Desmond.loadRom(buffer);
+  });
+</script>
 
 </body>
 </html>
