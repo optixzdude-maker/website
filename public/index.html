@@ -1,49 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Nintendo DS Emulator</title>
+<meta charset="UTF-8">
+<title>Nintendo DS Emulator</title>
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+  }
 
-    h1 {
-      margin-top: 16px;
-      margin-bottom: 8px;
-    }
+  h1 {
+    margin-top: 16px;
+  }
 
-    #controls {
-      margin-bottom: 12px;
-    }
+  #controls {
+    margin-bottom: 12px;
+  }
 
-    #emu-wrapper {
-      display: inline-block;
-      margin-top: 12px;
-    }
+  /* SCALE HERE — THIS WORKS */
+  #scale-wrapper {
+    display: inline-block;
+    zoom: 2.5; /* TRY 2.0 IF THIS IS TOO BIG */
+  }
 
-    /* ===== MAX SAFE DESMOND SCALING ===== */
-    desmond-player {
-      display: block;
+  #emu-wrapper {
+    display: inline-block;
+  }
 
-      width: 512px;
-      height: 768px;
+  desmond-player {
+    display: block;
+    background: black;
+  }
 
-      background: black;
-    }
-
-    .footer {
-      margin-top: 14px;
-      font-size: 12px;
-      opacity: 0.7;
-    }
-  </style>
+  .footer {
+    margin-top: 12px;
+    font-size: 12px;
+    opacity: 0.7;
+  }
+</style>
 </head>
 
 <body>
@@ -53,21 +52,21 @@
     <input type="file" id="romInput" accept=".nds">
   </div>
 
-  <div id="emu-wrapper">
-    <desmond-player id="ds"></desmond-player>
+  <div id="scale-wrapper">
+    <div id="emu-wrapper">
+      <desmond-player id="ds"></desmond-player>
+    </div>
   </div>
 
   <div class="footer">
     Runs locally · In-game saves persist
   </div>
 
-  <!-- IMPORTANT: load desmond AFTER layout is defined -->
   <script src="desmond.min.js"></script>
 
   <script>
     const input = document.getElementById("romInput");
     const ds = document.getElementById("ds");
-
     let lastUrl = null;
 
     input.addEventListener("change", () => {
@@ -77,11 +76,8 @@
       if (!file) return;
 
       lastUrl = URL.createObjectURL(file);
-
-      // ONLY supported load method
       ds.loadURL(lastUrl);
     });
   </script>
 </body>
 </html>
-
