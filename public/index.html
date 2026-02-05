@@ -19,19 +19,13 @@
     font-size: 20px;
   }
 
-  input, button {
-    margin: 6px;
+  input {
+    margin-bottom: 12px;
   }
 
-  /* Outer centering container */
-  .center {
-    display: flex;
-    justify-content: center;
-  }
-
-  /* This wrapper controls SCALE, not size */
-  .scale-wrapper {
-    transform-origin: top center;
+  /* SAFE centering only */
+  .emulator-wrapper {
+    margin: 0 auto;
   }
 
   desmond-player {
@@ -56,12 +50,9 @@
 <h1>Nintendo DS Emulator</h1>
 
 <input type="file" id="romInput" accept=".nds">
-<button id="layoutBtn">Switch Layout</button>
 
-<div class="center">
-  <div class="scale-wrapper" id="scaleWrapper">
-    <desmond-player id="player"></desmond-player>
-  </div>
+<div class="emulator-wrapper">
+  <desmond-player id="player"></desmond-player>
 </div>
 
 <footer>
@@ -72,36 +63,17 @@
 <script>
   const input = document.getElementById("romInput");
   const player = document.getElementById("player");
-  const scaleWrapper = document.getElementById("scaleWrapper");
-  const layoutBtn = document.getElementById("layoutBtn");
 
   let lastUrl = null;
-  let scale = 2;           // 🔥 VISUAL SCALE (2x looks good)
-  let horizontal = true;   // left/right by default
 
-  // Apply visual scale safely
-  function applyScale() {
-    scaleWrapper.style.transform = `scale(${scale})`;
-  }
-
-  applyScale();
-
-  // Load ROM
   input.addEventListener("change", () => {
     if (lastUrl) URL.revokeObjectURL(lastUrl);
+
     const file = input.files[0];
     if (!file) return;
 
     lastUrl = URL.createObjectURL(file);
     player.loadURL(lastUrl);
-  });
-
-  // Toggle screen layout
-  layoutBtn.addEventListener("click", () => {
-    horizontal = !horizontal;
-
-    // Force Desmond layout by aspect ratio
-    scaleWrapper.style.width = horizontal ? "800px" : "300px";
   });
 </script>
 
