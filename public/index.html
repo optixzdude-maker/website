@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDS Scaled Emulator</title>
+    <title>College Essay Helper</title>
     <style>
         body {
             background-color: #121212;
@@ -18,22 +18,21 @@
             padding: 20px;
         }
 
-        /* Container that handles the overall size on your page */
         #emu-wrapper {
             width: 100%;
-            max-width: 500px; /* Adjust this to change default size */
             background: #000;
             border: 10px solid #2a2a2a;
             border-radius: 12px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.6);
             overflow: hidden;
-            transition: max-width 0.3s ease;
+            transition: max-width 0.2s ease-in-out;
         }
 
-        /* Default Vertical Ratio */
-        .vertical { aspect-ratio: 256 / 384; max-width: 450px !important; }
-        /* Horizontal Ratio (Screens side-by-side) */
-        .horizontal { aspect-ratio: 512 / 192; max-width: 800px !important; }
+        /* Standard DS View */
+        .vertical { aspect-ratio: 256 / 384; max-width: 450px; }
+        
+        /* Side-by-Side View */
+        .horizontal { aspect-ratio: 512 / 192; max-width: 850px; }
 
         desmond-player {
             width: 100%;
@@ -62,14 +61,17 @@
             margin-bottom: 20px;
         }
 
-        button, .file-label {
+        button {
             background: #333;
             color: white;
-            border: none;
+            border: 1px solid #444;
             padding: 10px 15px;
             border-radius: 5px;
             cursor: pointer;
             font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         button:hover { background: #444; }
@@ -132,18 +134,17 @@
             const layoutBtn = document.getElementById('layout-btn');
             let isHorizontal = false;
 
-            // Logic to force scaling and layout inside the Shadow DOM
             const applyInternalStyles = () => {
                 if (player.shadowRoot) {
-                    // Remove old style if exists
-                    const oldStyle = player.shadowRoot.querySelector('#custom-emu-style');
-                    if (oldStyle) oldStyle.remove();
-
-                    const style = document.createElement('style');
-                    style.id = 'custom-emu-style';
+                    let styleTag = player.shadowRoot.querySelector('#custom-emu-style');
+                    if (!styleTag) {
+                        styleTag = document.createElement('style');
+                        styleTag.id = 'custom-emu-style';
+                        player.shadowRoot.appendChild(styleTag);
+                    }
                     
-                    // We toggle the flex-direction of the internal container
-                    style.textContent = `
+                    // The "flex: 1" ensures both screens share the space equally
+                    styleTag.textContent = `
                         #container { 
                             display: flex !important; 
                             flex-direction: ${isHorizontal ? 'row' : 'column'} !important; 
@@ -151,24 +152,23 @@
                             height: 100% !important; 
                         }
                         canvas { 
+                            flex: 1 !important;
                             width: ${isHorizontal ? '50%' : '100%'} !important; 
                             height: ${isHorizontal ? '100%' : '50%'} !important; 
                             object-fit: contain; 
                             image-rendering: pixelated;
+                            display: block !important;
                         }
                     `;
-                    player.shadowRoot.appendChild(style);
                 }
             };
 
-            // Layout Toggle Handler
             layoutBtn.onclick = () => {
                 isHorizontal = !isHorizontal;
                 wrapper.className = isHorizontal ? 'horizontal' : 'vertical';
                 applyInternalStyles();
             };
 
-            // File Loading
             document.getElementById('file-selector').onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -177,13 +177,16 @@
                 try {
                     const url = URL.createObjectURL(file);
                     await player.loadURL(url);
-                    applyInternalStyles(); 
+                    // Force styles twice to ensure the internal canvases exist
+                    applyInternalStyles();
+                    setTimeout(applyInternalStyles, 100); 
                     status.innerText = "Running: " + file.name;
                 } catch (err) {
                     status.innerText = "Error loading ROM.";
                 }
             };
 
+            // Maintain styling during interactions
             player.onclick = () => {
                 player.focus();
                 applyInternalStyles();
