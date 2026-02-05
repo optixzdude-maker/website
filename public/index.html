@@ -1,83 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Nintendo DS Emulator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDS Online Emulator</title>
+    
+    <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
 
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: black;
-    color: white;
-    font-family: Arial, sans-serif;
-    text-align: center;
-  }
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
 
-  h1 {
-    margin-top: 16px;
-  }
+        .container {
+            width: 100%;
+            max-width: 600px; /* Adjust this to change the size of the DS screens */
+            text-align: center;
+        }
 
-  #controls {
-    margin-bottom: 12px;
-  }
+        /* The desmond-player tag is responsive by default */
+        desmond-player {
+            width: 100%;
+            border: 4px solid #333;
+            border-radius: 8px;
+            background: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
 
-  /* SCALE HERE — THIS WORKS */
-  #scale-wrapper {
-    display: inline-block;
-    zoom: 2; /* TRY 2.0 IF THIS IS TOO BIG */
-  }
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
 
-  #emu-wrapper {
-    display: inline-block;
-  }
+        input[type="file"] {
+            margin: 10px 0;
+            color: #ccc;
+        }
 
-  desmond-player {
-    display: block;
-    background: black;
-  }
-
-  .footer {
-    margin-top: 12px;
-    font-size: 12px;
-    opacity: 0.7;
-  }
-</style>
+        h1 { margin-bottom: 10px; font-size: 1.5rem; }
+        p { color: #888; font-size: 0.9rem; }
+    </style>
 </head>
-
 <body>
-  <h1>Nintendo DS Emulator</h1>
 
-  <div id="controls">
-    <input type="file" id="romInput" accept=".nds">
-  </div>
+    <div class="container">
+        <h1>NDS Emulator</h1>
+        
+        <desmond-player id="nds-player"></desmond-player>
 
-  <div id="scale-wrapper">
-    <div id="emu-wrapper">
-      <desmond-player id="ds"></desmond-player>
+        <div class="controls">
+            <p>Select a .nds ROM file to start playing</p>
+            <input type="file" id="rom-upload" accept=".nds">
+        </div>
+
+        <div style="margin-top: 20px; text-align: left; font-size: 0.8rem; color: #666;">
+            <strong>Controls:</strong><br>
+            DPAD: Arrow Keys | A/B: Z/X | X/Y: S/A | L/R: Q/W | Start/Select: Enter/Shift
+        </div>
     </div>
-  </div>
 
-  <div class="footer">
-    Runs locally · In-game saves persist
-  </div>
+    <script>
+        const player = document.getElementById('nds-player');
+        const uploader = document.getElementById('rom-upload');
 
-  <script src="desmond.min.js"></script>
+        uploader.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Convert the uploaded file to a URL the emulator can read
+                const romURL = URL.createObjectURL(file);
+                
+                // Load the ROM into the player
+                player.loadURL(romURL);
+            }
+        });
 
-  <script>
-    const input = document.getElementById("romInput");
-    const ds = document.getElementById("ds");
-    let lastUrl = null;
+        // Optional: Auto-focus the player so keys work immediately
+        player.addEventListener('click', () => {
+            player.focus();
+        });
+    </script>
 
-    input.addEventListener("change", () => {
-      if (lastUrl) URL.revokeObjectURL(lastUrl);
-
-      const file = input.files[0];
-      if (!file) return;
-
-      lastUrl = URL.createObjectURL(file);
-      ds.loadURL(lastUrl);
-    });
-  </script>
 </body>
 </html>
