@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>College Essay Helper</title>
+    <title>NDS Emulator - Persistent</title>
     <style>
         body {
             background-color: #121212;
@@ -18,10 +18,9 @@
             padding: 20px;
         }
 
-        /* The scaling container */
         .emu-container {
             width: 100%;
-            max-width: 450px; /* Resize this to make the emulator bigger/smaller */
+            max-width: 450px;
             aspect-ratio: 256 / 384;
             background: #000;
             border: 10px solid #2a2a2a;
@@ -37,20 +36,18 @@
             display: block;
         }
 
-        .ui-panel {
-            margin-top: 25px;
-            width: 100%;
-            max-width: 450px;
-        }
-
         .status {
             text-align: center;
             font-size: 0.9rem;
             color: #00ff88;
-            margin-bottom: 15px;
+            margin: 15px 0;
         }
 
-        /* Controller UI */
+        .ui-panel {
+            width: 100%;
+            max-width: 450px;
+        }
+
         .controls-card {
             background: #1e1e1e;
             padding: 15px;
@@ -70,6 +67,13 @@
         }
 
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
+
+        .save-warning {
+            font-size: 0.7rem;
+            color: #ffb86c;
+            text-align: center;
+            margin-top: 10px;
+        }
 
         input[type="file"] {
             width: 100%;
@@ -100,6 +104,7 @@
             <div class="key">SELECT <b>SHIFT</b></div>
             <div class="key">MIC <b>R</b></div>
         </div>
+        <p class="save-warning">Saves are stored in your browser's cache. Clearing history may delete them.</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
@@ -110,8 +115,6 @@
             const fileIn = document.getElementById('file-selector');
             const status = document.getElementById('status-text');
 
-            // --- THE MAGIC FIX FOR SCALING ---
-            // This function forces the internal canvas to stretch
             const forceScale = () => {
                 if (player.shadowRoot) {
                     const style = document.createElement('style');
@@ -127,6 +130,15 @@
                 }
             };
 
+            // Fix for Chromebook Volume Keys
+            // We prevent the emulator from swallowing "system" keys
+            window.addEventListener('keydown', (e) => {
+                const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'BrightnessUp', 'BrightnessDown'];
+                if (systemKeys.includes(e.key)) {
+                    e.stopImmediatePropagation(); // Tell the emulator to ignore this
+                }
+            }, true);
+
             fileIn.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -135,23 +147,46 @@
                 
                 try {
                     const url = URL.createObjectURL(file);
+                    
+                    // DESMOND AUTO-SAVE LOGIC
+                    // We name the save file based on the ROM name to keep them separate
+                    const saveName = `save_${file.name}`;
+                    
+                    // Attempt to load existing save data from localStorage
+                    const savedData = localStorage.getItem(saveName);
+                    
                     await player.loadURL(url);
                     
-                    // Apply scaling fix after the game starts
+                    if (savedData) {
+                        // If we found a save, inject it into the emulator's memory
+                        const uint8Array = new Uint8Array(JSON.parse(savedData));
+                        player.emscripten.FS.writeFile('/save.sav', uint8Array);
+                        status.innerText = "ROM & Save Loaded!";
+                    }
+
                     forceScale(); 
-                    
-                    status.innerText = "Running: " + file.name;
                     player.focus();
+
+                    // Every 30 seconds, backup the internal save to browser storage
+                    setInterval(() => {
+                        try {
+                            const data = player.emscripten.FS.readFile('/save.sav');
+                            localStorage.setItem(saveName, JSON.stringify(Array.from(data)));
+                            console.log("Auto-save synchronized to browser storage.");
+                        } catch(e) {
+                            // File might not exist yet if user hasn't saved ingame
+                        }
+                    }, 30000);
+
                 } catch (err) {
                     status.innerText = "Error loading ROM.";
                     console.error(err);
                 }
             };
 
-            // Fix focus on click
             player.onclick = () => {
                 player.focus();
-                forceScale(); // Run again just in case
+                forceScale();
             };
         }
     </script>
