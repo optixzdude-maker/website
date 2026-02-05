@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>Nintendo DS Emulator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <style>
     body {
       margin: 0;
@@ -30,8 +29,8 @@
     desmond-player {
       display: flex;
       flex-direction: column;
-      width: 90vw;       /* responsive width */
-      max-width: 512px;  /* original DS width max */
+      width: 90vw;
+      max-width: 512px;
       background: black;
     }
 
@@ -55,15 +54,10 @@
     }
   </style>
 </head>
-
 <body>
-
   <h1>Nintendo DS Emulator</h1>
-
   <input type="file" id="romInput" accept=".nds" />
-
   <desmond-player></desmond-player>
-
   <footer>
     Runs locally in your browser · In-game saves persist
   </footer>
@@ -72,13 +66,23 @@
   <script>
     const input = document.getElementById("romInput");
     const dsPlayer = document.querySelector("desmond-player");
-
     let lastUrl;
 
-    input.addEventListener("change", () => {
+    input.addEventListener("change", async () => {
       if (lastUrl) URL.revokeObjectURL(lastUrl);
-
       const file = input.files[0];
       if (!file) return;
 
-      lastUrl
+      // Create blob URL and load with Desmond
+      lastUrl = URL.createObjectURL(file);
+      const arrayBuffer = await file.arrayBuffer();
+      dsPlayer.loadROM(arrayBuffer);  // Use loadROM, not loadURL
+    });
+
+    // Optional: scale DS screens dynamically
+    window.addEventListener("resize", () => {
+      dsPlayer.style.width = Math.min(window.innerWidth * 0.9, 512) + "px";
+    });
+  </script>
+</body>
+</html>
