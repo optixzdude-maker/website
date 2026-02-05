@@ -3,74 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <title>Nintendo DS Emulator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: #0e0e0e;
+      padding: 0;
+      background: black;
       color: white;
-      font-family: system-ui, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      font-family: Arial, sans-serif;
+      text-align: center;
     }
 
     h1 {
-      margin: 16px 0 8px;
-      font-size: 20px;
+      margin-top: 16px;
+      margin-bottom: 8px;
     }
 
-    input {
+    #controls {
       margin-bottom: 12px;
     }
 
+    #emu-wrapper {
+      display: inline-block;
+      margin-top: 12px;
+    }
+
+    /* ===== MAX SAFE DESMOND SCALING ===== */
     desmond-player {
       display: block;
-      width: 100%;
-      max-width: 512px;
-      aspect-ratio: 256 / 384;
+
+      /* SAFE SCALE (2.5× vertical layout) */
+      width: 640px;
+      height: 960px;
+
       background: black;
     }
 
-    desmond-player canvas {
-      width: 100% !important;
-      height: auto !important;
-      image-rendering: pixelated;
-    }
-
-    footer {
-      opacity: 0.6;
+    .footer {
+      margin-top: 14px;
       font-size: 12px;
-      margin: 10px 0;
-    }
-
-    @media (max-width: 600px) {
-      desmond-player {
-        max-width: 100vw;
-      }
+      opacity: 0.7;
     }
   </style>
 </head>
 
 <body>
-
   <h1>Nintendo DS Emulator</h1>
 
-  <input type="file" id="romInput" accept=".nds" />
+  <div id="controls">
+    <input type="file" id="romInput" accept=".nds">
+  </div>
 
-  <desmond-player></desmond-player>
+  <div id="emu-wrapper">
+    <desmond-player id="ds"></desmond-player>
+  </div>
 
-  <footer>
-    Runs locally in your browser · In-game saves persist
-  </footer>
+  <div class="footer">
+    Runs locally · In-game saves persist
+  </div>
 
+  <!-- IMPORTANT: load desmond AFTER layout is defined -->
   <script src="desmond.min.js"></script>
+
   <script>
     const input = document.getElementById("romInput");
-    const dsPlayer = document.querySelector("desmond-player");
+    const ds = document.getElementById("ds");
 
-    let lastUrl;
+    let lastUrl = null;
 
     input.addEventListener("change", () => {
       if (lastUrl) URL.revokeObjectURL(lastUrl);
@@ -79,14 +78,11 @@
       if (!file) return;
 
       lastUrl = URL.createObjectURL(file);
-      dsPlayer.loadURL(lastUrl);
-    });
 
-    // Optional: ensure pixel-perfect scaling
-    window.addEventListener("resize", () => {
-      dsPlayer.style.width = Math.min(window.innerWidth, 512) + "px";
+      // ONLY supported load method
+      ds.loadURL(lastUrl);
     });
   </script>
-
 </body>
 </html>
+
