@@ -3,98 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDS Ultra-Scaled Emulator</title>
+    <title>NDS Scaled Emulator</title>
     <style>
-        :root {
-            --emu-scale: 1.5; /* INCREASE THIS TO SCALE UP (e.g., 2.0, 2.5) */
-        }
-
         body {
-            background-color: #0f0f0f;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 40px 20px;
+            justify-content: center;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
         }
 
         /* The scaling container */
-        .viewport {
-            position: relative;
-            /* DS Native is 256x384. We multiply by our scale variable */
-            width: calc(256px * var(--emu-scale));
-            height: calc(384px * var(--emu-scale));
+        .emu-container {
+            width: 100%;
+            max-width: 450px; /* Resize this to make the emulator bigger/smaller */
+            aspect-ratio: 256 / 384;
             background: #000;
-            border: 12px solid #222;
-            border-radius: 10px;
-            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+            border: 10px solid #2a2a2a;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
             overflow: hidden;
+            position: relative;
         }
 
-        /* FORCE scaling on the player and its internal canvas */
-        desmond-player, 
-        desmond-player canvas {
-            width: 100% !important;
-            height: 100% !important;
-            image-rendering: pixelated; /* Keeps pixels sharp */
+        desmond-player {
+            width: 100%;
+            height: 100%;
             display: block;
         }
 
         .ui-panel {
-            margin-top: 30px;
+            margin-top: 25px;
             width: 100%;
-            max-width: 500px;
+            max-width: 450px;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #00ff88;
+            margin-bottom: 15px;
+        }
+
+        /* Controller UI */
+        .controls-card {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            border: 1px solid #333;
+        }
+
+        .key {
+            background: #2d2d2d;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
             text-align: center;
         }
 
-        /* Controller Legend Styling */
-        .controls-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            background: #1a1a1a;
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid #333;
-            margin-top: 20px;
+        .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
+
+        input[type="file"] {
+            width: 100%;
+            margin-bottom: 20px;
+            color: #aaa;
         }
-
-        .key-box {
-            background: #333;
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-        }
-
-        .key-box b { color: #00ff88; }
-
-        .status { font-weight: bold; color: #888; margin-bottom: 10px; }
-        input[type="file"] { margin: 15px 0; }
     </style>
 </head>
 <body>
 
-    <div class="status" id="boot-msg">Initializing DeSmuME...</div>
+    <div class="status" id="status-text">Engine Ready</div>
 
-    <div class="viewport">
-        <desmond-player id="nds-main"></desmond-player>
+    <div class="emu-container">
+        <desmond-player id="player"></desmond-player>
     </div>
 
     <div class="ui-panel">
-        <input type="file" id="rom-in" accept=".nds">
+        <input type="file" id="file-selector" accept=".nds">
 
-        <div class="controls-grid">
-            <div class="key-box">DPAD: <b>Arrows</b></div>
-            <div class="key-box">A: <b>Z</b></div>
-            <div class="key-box">B: <b>X</b></div>
-            <div class="key-box">X: <b>S</b></div>
-            <div class="key-box">Y: <b>A</b></div>
-            <div class="key-box">L: <b>Q</b></div>
-            <div class="key-box">R: <b>W</b></div>
-            <div class="key-box">Start: <b>Enter</b></div>
-            <div class="key-box">Select: <b>Shift</b></div>
+        <div class="controls-card">
+            <div class="key">DPAD <b>ARROWS</b></div>
+            <div class="key">A <b>Z</b></div>
+            <div class="key">B <b>X</b></div>
+            <div class="key">X <b>S</b></div>
+            <div class="key">Y <b>A</b></div>
+            <div class="key">L / R <b>Q / W</b></div>
+            <div class="key">START <b>ENTER</b></div>
+            <div class="key">SELECT <b>SHIFT</b></div>
+            <div class="key">MIC <b>R</b></div>
         </div>
     </div>
 
@@ -102,28 +106,53 @@
 
     <script>
         {
-            const core = document.getElementById('nds-main');
-            const status = document.getElementById('boot-msg');
-            const fileInput = document.getElementById('rom-in');
+            const player = document.getElementById('player');
+            const fileIn = document.getElementById('file-selector');
+            const status = document.getElementById('status-text');
 
-            window.onload = () => {
-                status.innerText = "Engine Ready. Select a ROM.";
-            };
-
-            fileInput.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const url = URL.createObjectURL(file);
-                if (typeof core.loadURL === 'function') {
-                    status.innerText = "Running " + file.name;
-                    await core.loadURL(url);
-                    core.focus();
+            // --- THE MAGIC FIX FOR SCALING ---
+            // This function forces the internal canvas to stretch
+            const forceScale = () => {
+                if (player.shadowRoot) {
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        canvas { 
+                            width: 100% !important; 
+                            height: 100% !important; 
+                            object-fit: contain; 
+                            image-rendering: pixelated;
+                        }
+                    `;
+                    player.shadowRoot.appendChild(style);
                 }
             };
 
-            // Keep focus so keys work
-            core.onclick = () => core.focus();
+            fileIn.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                status.innerText = "Loading " + file.name + "...";
+                
+                try {
+                    const url = URL.createObjectURL(file);
+                    await player.loadURL(url);
+                    
+                    // Apply scaling fix after the game starts
+                    forceScale(); 
+                    
+                    status.innerText = "Running: " + file.name;
+                    player.focus();
+                } catch (err) {
+                    status.innerText = "Error loading ROM.";
+                    console.error(err);
+                }
+            };
+
+            // Fix focus on click
+            player.onclick = () => {
+                player.focus();
+                forceScale(); // Run again just in case
+            };
         }
     </script>
 </body>
