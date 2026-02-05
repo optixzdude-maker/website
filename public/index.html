@@ -55,15 +55,16 @@
   const input = document.getElementById("romInput");
   const dsPlayer = document.querySelector("desmond-player");
 
+  let lastUrl;
+
   input.addEventListener("change", () => {
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+
     const file = input.files[0];
     if (!file) return;
 
-    // Create a temporary URL for the ROM
-    const url = URL.createObjectURL(file);
-
-    // Load ROM into Desmond
-    dsPlayer.loadURL(url);
+    lastUrl = URL.createObjectURL(file);
+    dsPlayer.loadURL(lastUrl);
   });
 </script>
 
