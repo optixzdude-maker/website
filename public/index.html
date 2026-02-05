@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDS Emulator - Persistent</title>
+    <title>DS Emulator</title>
     <style>
         body {
             background-color: #121212;
@@ -17,6 +17,8 @@
             margin: 0;
             padding: 20px;
         }
+
+        h1 { margin-bottom: 20px; font-weight: 400; color: #888; }
 
         .emu-container {
             width: 100%;
@@ -36,17 +38,31 @@
             display: block;
         }
 
-        .status {
-            text-align: center;
-            font-size: 0.9rem;
-            color: #00ff88;
-            margin: 15px 0;
-        }
-
         .ui-panel {
             width: 100%;
             max-width: 450px;
+            margin-top: 20px;
         }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        button:hover { background: #444; }
 
         .controls-card {
             background: #1e1e1e;
@@ -68,30 +84,26 @@
 
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
 
-        .save-warning {
-            font-size: 0.7rem;
-            color: #ffb86c;
-            text-align: center;
-            margin-top: 10px;
-        }
-
-        input[type="file"] {
-            width: 100%;
-            margin-bottom: 20px;
-            color: #aaa;
-        }
+        /* Fullscreen styles */
+        :fullscreen .emu-container { max-width: none; width: 100vw; height: 100vh; border: none; border-radius: 0; }
     </style>
 </head>
 <body>
 
-    <div class="emu-container">
+    <h1>DS Emulator</h1>
+
+    <div class="emu-container" id="emu-box">
         <desmond-player id="player"></desmond-player>
     </div>
-
-    <div class="status" id="status-text">Engine Ready</div>
     
     <div class="ui-panel">
-        <input type="file" id="file-selector" accept=".nds">
+        <input type="file" id="file-selector" accept=".nds" style="display:none">
+        
+        <div class="button-row">
+            <button onclick="document.getElementById('file-selector').click()">📂 Load ROM</button>
+            <button id="fs-btn">🖥️ Fullscreen</button>
+            <button id="dl-btn">💾 Export Save</button>
+        </div>
 
         <div class="controls-card">
             <div class="key">DPAD <b>ARROWS</b></div>
@@ -104,7 +116,6 @@
             <div class="key">SELECT <b>SHIFT</b></div>
             <div class="key">MIC <b>R</b></div>
         </div>
-        <p class="save-warning">Saves are stored in your browser's cache. Clearing history may delete them.</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
@@ -113,81 +124,80 @@
         {
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
-            const status = document.getElementById('status-text');
+            const fsBtn = document.getElementById('fs-btn');
+            const dlBtn = document.getElementById('dl-btn');
+            let currentFileName = "";
 
             const forceScale = () => {
                 if (player.shadowRoot) {
                     const style = document.createElement('style');
-                    style.textContent = `
-                        canvas { 
-                            width: 100% !important; 
-                            height: 100% !important; 
-                            object-fit: contain; 
-                            image-rendering: pixelated;
-                        }
-                    `;
+                    style.textContent = `canvas { width: 100% !important; height: 100% !important; object-fit: contain; image-rendering: pixelated; }`;
                     player.shadowRoot.appendChild(style);
                 }
             };
 
-            // Fix for Chromebook Volume Keys
-            // We prevent the emulator from swallowing "system" keys
+            // Volume Key Fix
             window.addEventListener('keydown', (e) => {
                 const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'BrightnessUp', 'BrightnessDown'];
-                if (systemKeys.includes(e.key)) {
-                    e.stopImmediatePropagation(); // Tell the emulator to ignore this
-                }
+                if (systemKeys.includes(e.key)) e.stopImmediatePropagation();
             }, true);
+
+            // Fullscreen Logic
+            fsBtn.onclick = () => {
+                const box = document.getElementById('emu-box');
+                if (!document.fullscreenElement) {
+                    box.requestFullscreen().catch(err => alert("Error enabling fullscreen"));
+                } else {
+                    document.exitFullscreen();
+                }
+            };
+
+            // Download Save Logic
+            dlBtn.onclick = () => {
+                try {
+                    const data = player.emscripten.FS.readFile('/save.sav');
+                    const blob = new Blob([data], { type: "application/octet-stream" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = currentFileName ? currentFileName.replace('.nds', '.sav') : 'game.sav';
+                    a.click();
+                } catch(e) {
+                    alert("No save file found yet. Save in-game first!");
+                }
+            };
 
             fileIn.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
-                status.innerText = "Loading " + file.name + "...";
+                currentFileName = file.name;
                 
                 try {
                     const url = URL.createObjectURL(file);
-                    
-                    // DESMOND AUTO-SAVE LOGIC
-                    // We name the save file based on the ROM name to keep them separate
                     const saveName = `save_${file.name}`;
-                    
-                    // Attempt to load existing save data from localStorage
                     const savedData = localStorage.getItem(saveName);
                     
                     await player.loadURL(url);
                     
                     if (savedData) {
-                        // If we found a save, inject it into the emulator's memory
                         const uint8Array = new Uint8Array(JSON.parse(savedData));
                         player.emscripten.FS.writeFile('/save.sav', uint8Array);
-                        status.innerText = "ROM & Save Loaded!";
                     }
 
-                    forceScale(); 
-                    player.focus();
+                    forceScale();
 
-                    // Every 30 seconds, backup the internal save to browser storage
+                    // Autosave every 2 minutes (120000ms)
                     setInterval(() => {
                         try {
                             const data = player.emscripten.FS.readFile('/save.sav');
                             localStorage.setItem(saveName, JSON.stringify(Array.from(data)));
-                            console.log("Auto-save synchronized to browser storage.");
-                        } catch(e) {
-                            // File might not exist yet if user hasn't saved ingame
-                        }
-                    }, 30000);
+                        } catch(e) {}
+                    }, 120000);
 
-                } catch (err) {
-                    status.innerText = "Error loading ROM.";
-                    console.error(err);
-                }
+                } catch (err) { console.error(err); }
             };
 
-            player.onclick = () => {
-                player.focus();
-                forceScale();
-            };
+            player.onclick = () => { player.focus(); forceScale(); };
         }
     </script>
 </body>
