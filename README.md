@@ -1,67 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>DS Emulator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+# Desmond on Cloudflare Pages
 
-  <style>
-    body {
-      margin: 0;
-      background: #0e0e0e;
-      color: white;
-      font-family: system-ui, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+This is a static Nintendo DS emulator site using Desmond (DeSmuME WASM).
 
-    h1 {
-      margin: 16px 0 8px;
-    }
+## Features
+- Runs entirely in browser
+- No backend
+- Chromebook compatible
+- Uses file picker (no ROM hosting)
 
-    input {
-      margin-bottom: 12px;
-    }
+## Deploy
+1. Upload this repo to GitHub
+2. Create a Cloudflare Pages project
+3. Set:
+   - Build command: (leave empty)
+   - Output directory: public
+4. Deploy
 
-    desmond-player {
-      width: 512px;
-      height: 384px;
-      max-width: 100vw;
-      background: black;
-    }
+## Controls
+- Keyboard: Arrow keys, Z, X, Enter, Shift
+- Touch works on mobile
 
-    footer {
-      opacity: 0.6;
-      font-size: 12px;
-      margin: 10px 0;
-    }
-  </style>
-</head>
-<body>
-
-  <h1>Nintendo DS Emulator</h1>
-
-  <input type="file" id="romInput" accept=".nds">
-
-  <desmond-player id="player"></desmond-player>
-
-  <footer>
-    Runs locally in your browser · No uploads
-  </footer>
-
-  <script src="desmond.min.js"></script>
-  <script>
-    const player = document.getElementById("player");
-    const input = document.getElementById("romInput");
-
-    input.addEventListener("change", () => {
-      const file = input.files[0];
-      if (file) {
-        player.loadFile(file);
-      }
-    });
-  </script>
-
-</body>
-</html>
+Legal note: Bring your own ROMs.
