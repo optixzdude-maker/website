@@ -3,66 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDS Scaled Emulator</title>
+    <title>NDS Ultra-Scaled Emulator</title>
     <style>
         :root {
-            --emu-width: 400px; /* Change this to scale the whole thing */
+            --emu-scale: 1.5; /* INCREASE THIS TO SCALE UP (e.g., 2.0, 2.5) */
         }
 
         body {
-            background-color: #111;
-            color: #fff;
-            font-family: sans-serif;
+            background-color: #0f0f0f;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            padding: 40px 20px;
+            margin: 0;
         }
 
-        /* 1. The Outer Container controls the size on the page */
-        .scaler-box {
-            width: var(--emu-width);
+        /* The scaling container */
+        .viewport {
             position: relative;
+            /* DS Native is 256x384. We multiply by our scale variable */
+            width: calc(256px * var(--emu-scale));
+            height: calc(384px * var(--emu-scale));
             background: #000;
-            border: 10px solid #333;
-            border-radius: 12px;
-            box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+            border: 12px solid #222;
+            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
             overflow: hidden;
         }
 
-        /* 2. Force the player to fill the box and maintain ratio */
-        desmond-player {
-            width: 100% !important;
-            height: auto !important;
-            display: block;
-            aspect-ratio: 256 / 384;
-        }
-
-        /* 3. Deep Target: The engine injects a canvas. We MUST force that canvas to scale. */
+        /* FORCE scaling on the player and its internal canvas */
+        desmond-player, 
         desmond-player canvas {
             width: 100% !important;
             height: 100% !important;
-            image-rendering: pixelated; /* Keeps it sharp, not blurry */
-            image-rendering: crisp-edges;
+            image-rendering: pixelated; /* Keeps pixels sharp */
+            display: block;
         }
 
-        .controls {
-            margin-top: 20px;
+        .ui-panel {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 500px;
             text-align: center;
         }
+
+        /* Controller Legend Styling */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #333;
+            margin-top: 20px;
+        }
+
+        .key-box {
+            background: #333;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .key-box b { color: #00ff88; }
+
+        .status { font-weight: bold; color: #888; margin-bottom: 10px; }
+        input[type="file"] { margin: 15px 0; }
     </style>
 </head>
 <body>
 
-    <div class="scaler-box">
-        <desmond-player id="nds-core"></desmond-player>
+    <div class="status" id="boot-msg">Initializing DeSmuME...</div>
+
+    <div class="viewport">
+        <desmond-player id="nds-main"></desmond-player>
     </div>
 
-    <div class="controls">
-        <p id="status">Loading WASM Engine...</p>
-        <input type="file" id="rom-file" accept=".nds">
-        <div style="margin-top:10px; font-size: 12px; color: #777;">
-            Change <b>--emu-width</b> in CSS to resize.
+    <div class="ui-panel">
+        <input type="file" id="rom-in" accept=".nds">
+
+        <div class="controls-grid">
+            <div class="key-box">DPAD: <b>Arrows</b></div>
+            <div class="key-box">A: <b>Z</b></div>
+            <div class="key-box">B: <b>X</b></div>
+            <div class="key-box">X: <b>S</b></div>
+            <div class="key-box">Y: <b>A</b></div>
+            <div class="key-box">L: <b>Q</b></div>
+            <div class="key-box">R: <b>W</b></div>
+            <div class="key-box">Start: <b>Enter</b></div>
+            <div class="key-box">Select: <b>Shift</b></div>
         </div>
     </div>
 
@@ -70,25 +102,28 @@
 
     <script>
         {
-            const emu = document.getElementById('nds-core');
-            const status = document.getElementById('status');
-            const input = document.getElementById('rom-file');
+            const core = document.getElementById('nds-main');
+            const status = document.getElementById('boot-msg');
+            const fileInput = document.getElementById('rom-in');
 
-            window.onload = () => { status.innerText = "Engine Ready."; };
+            window.onload = () => {
+                status.innerText = "Engine Ready. Select a ROM.";
+            };
 
-            input.onchange = async (e) => {
+            fileInput.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
 
                 const url = URL.createObjectURL(file);
-                if (typeof emu.loadURL === 'function') {
-                    await emu.loadURL(url);
-                    status.innerText = "Playing: " + file.name;
-                    
-                    // FORCE RE-CALCULATION: Sometimes the canvas needs a nudge after loading
-                    window.dispatchEvent(new Event('resize'));
+                if (typeof core.loadURL === 'function') {
+                    status.innerText = "Running " + file.name;
+                    await core.loadURL(url);
+                    core.focus();
                 }
             };
+
+            // Keep focus so keys work
+            core.onclick = () => core.focus();
         }
     </script>
 </body>
