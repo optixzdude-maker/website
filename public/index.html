@@ -18,7 +18,6 @@
             padding: 20px;
         }
 
-        /* Centered Emulator Container */
         .emu-container {
             width: 100%;
             max-width: 450px;
@@ -37,7 +36,6 @@
             display: block;
         }
 
-        /* UI Panel directly below emulator */
         .ui-panel {
             width: 100%;
             max-width: 450px;
@@ -66,12 +64,7 @@
         button:hover { background: #444; }
         button:focus { background: #333; }
 
-        h1 { 
-            margin: 15px 0; 
-            font-weight: 400; 
-            color: #888; 
-            font-size: 1.2rem;
-        }
+        h1 { margin: 15px 0; font-weight: 400; color: #888; font-size: 1.2rem; }
 
         .controls-card {
             background: #1e1e1e;
@@ -81,6 +74,7 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
             border: 1px solid #333;
+            margin-bottom: 15px;
         }
 
         .key {
@@ -92,6 +86,20 @@
         }
 
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
+
+        .file-ops {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+        }
+
+        .file-ops button {
+            background: #222;
+            font-size: 0.75rem;
+            padding: 8px;
+        }
     </style>
 </head>
 <body>
@@ -102,6 +110,7 @@
     
     <div class="ui-panel">
         <input type="file" id="file-selector" accept=".nds" style="display:none">
+        <input type="file" id="save-importer" accept=".sav" style="display:none">
         
         <div class="button-row">
             <button id="load-btn">📁 Load ROM</button>
@@ -120,6 +129,11 @@
             <div class="key">START <b>ENTER</b></div>
             <div class="key">SELECT <b>SHIFT</b></div>
         </div>
+
+        <div class="file-ops">
+            <button id="export-btn">📤 Export .sav File</button>
+            <button id="import-btn">📥 Import .sav File</button>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
@@ -128,9 +142,14 @@
         {
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
+            const saveIn = document.getElementById('save-importer');
             const loadBtn = document.getElementById('load-btn');
             const syncBtn = document.getElementById('sync-btn');
-            let currentSaveName = "";
+            const exportBtn = document.getElementById('export-btn');
+            const importBtn = document.getElementById('import-btn');
+            
+            let currentFileName = "";
+            let currentSaveKey = "";
 
             const forceScale = () => {
                 if (player.shadowRoot) {
@@ -142,43 +161,64 @@
 
             // Full Bypass for ALL Function Keys (F1-F12)
             window.addEventListener('keydown', (e) => {
-                if (e.keyCode >= 112 && e.keyCode <= 123) {
-                    e.stopImmediatePropagation(); 
-                }
+                if (e.keyCode >= 112 && e.keyCode <= 123) e.stopImmediatePropagation(); 
             }, true);
 
-            loadBtn.onclick = () => {
-                fileIn.click();
-                loadBtn.blur();
-            };
+            loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
+            importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
 
-            // Manual Sync Handler
+            // 1. Sync Logic (Virtual Memory -> Browser Storage)
             syncBtn.onclick = () => {
                 syncBtn.blur();
-                if (!currentSaveName) {
-                    alert("Please load a game first.");
-                    return;
-                }
+                if (!currentSaveKey) return alert("Load a game first!");
                 try {
                     const data = player.emscripten.FS.readFile('/save.sav');
-                    localStorage.setItem(currentSaveName, JSON.stringify(Array.from(data)));
-                    alert("Save data synced to browser!");
-                } catch(e) {
-                    alert("No save data found. Remember to save in the game's menu first!");
-                }
+                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
+                    alert("Synced! Your progress is safe in the browser.");
+                } catch(e) { alert("Save in-game first!"); }
+            };
+
+            // 2. Export Logic (Virtual Memory -> PC Download)
+            exportBtn.onclick = () => {
+                exportBtn.blur();
+                try {
+                    const data = player.emscripten.FS.readFile('/save.sav');
+                    const blob = new Blob([data], { type: "application/octet-stream" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = currentFileName.replace('.nds', '.sav') || 'game.sav';
+                    a.click();
+                } catch(e) { alert("No save data found to export."); }
+            };
+
+            // 3. Import Logic (PC File -> Virtual Memory & Browser Storage)
+            saveIn.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file || !currentSaveKey) return alert("Load the ROM before importing its save!");
+                
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const uint8Array = new Uint8Array(reader.result);
+                    // Inject into active emulator
+                    player.emscripten.FS.writeFile('/save.sav', uint8Array);
+                    // Also update browser storage so it persists
+                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
+                    alert("Save imported! Restart the game to load it.");
+                };
+                reader.readAsArrayBuffer(file);
             };
 
             fileIn.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                currentSaveName = `save_${file.name}`;
+                currentFileName = file.name;
+                currentSaveKey = `save_${file.name}`;
                 
                 try {
                     const url = URL.createObjectURL(file);
-                    const savedData = localStorage.getItem(currentSaveName);
-                    
+                    const savedData = localStorage.getItem(currentSaveKey);
                     await player.loadURL(url);
-                    
                     if (savedData) {
                         const uint8Array = new Uint8Array(JSON.parse(savedData));
                         player.emscripten.FS.writeFile('/save.sav', uint8Array);
