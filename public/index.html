@@ -62,7 +62,7 @@
         }
 
         button:hover { background: #444; }
-        button:focus { background: #333; }
+        button:active { transform: translateY(1px); }
 
         h1 { margin: 15px 0; font-weight: 400; color: #888; font-size: 1.2rem; }
 
@@ -92,6 +92,7 @@
             margin-bottom: 10px;
             color: #666;
             font-style: italic;
+            min-height: 1.2em;
         }
 
         .file-ops {
@@ -169,23 +170,36 @@
                 }
             };
 
+            // SYSTEM KEY BYPASS - Chromebook Volume & Fullscreen (F4)
+            // We use 'useCapture: true' to catch these BEFORE the emulator does
             window.addEventListener('keydown', (e) => {
-                if (e.keyCode >= 112 && e.keyCode <= 123) e.stopImmediatePropagation(); 
-            }, true);
+                const systemKeys = [
+                    'AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 
+                    'BrightnessUp', 'BrightnessDown', 'F4', 'Fullscreen', 'F11'
+                ];
+                if (systemKeys.includes(e.key) || (e.keyCode >= 112 && e.keyCode <= 123)) {
+                    e.stopImmediatePropagation(); 
+                }
+            }, { capture: true });
 
             loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
             importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
 
-            syncBtn.onclick = () => {
+            syncBtn.onclick = async () => {
                 syncBtn.blur();
                 if (!currentSaveKey) return;
+                
                 try {
-                    const data = player.emscripten.FS.readFile('/save.sav');
-                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                    saveInfo.innerText = "Browser save updated!";
-                    saveInfo.style.color = "#00ff88";
-                    alert("Synced! Browser storage updated.");
-                } catch(e) { alert("Save in-game first!"); }
+                    // Force the emulator to flush its memory to the virtual file
+                    if (player.emscripten && player.emscripten.FS) {
+                        const data = player.emscripten.FS.readFile('/save.sav');
+                        localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
+                        saveInfo.innerText = "Browser save updated!";
+                        saveInfo.style.color = "#00ff88";
+                    }
+                } catch(e) { 
+                    alert("Error: No in-game save detected. Please save in the Pokémon menu first, wait 2 seconds, then try again."); 
+                }
             };
 
             exportBtn.onclick = () => {
@@ -203,16 +217,16 @@
 
             saveIn.onchange = (e) => {
                 const file = e.target.files[0];
-                if (!file || !currentSaveKey) return alert("Load the ROM before importing!");
+                if (!file || !currentSaveKey) return;
                 
                 const reader = new FileReader();
                 reader.onload = () => {
                     const uint8Array = new Uint8Array(reader.result);
                     player.emscripten.FS.writeFile('/save.sav', uint8Array);
                     localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
-                    saveInfo.innerText = "External save imported & loaded!";
+                    saveInfo.innerText = "External save imported!";
                     saveInfo.style.color = "#00ff88";
-                    alert("Save imported! Please restart the game to see changes.");
+                    alert("Imported! Please reload the ROM to apply the save.");
                 };
                 reader.readAsArrayBuffer(file);
             };
@@ -237,11 +251,14 @@
                         saveInfo.innerText = "No browser save found";
                         saveInfo.style.color = "#888";
                     }
-                    forceScale();
+                    setTimeout(forceScale, 500); // Wait for boot to scale
                 } catch (err) { console.error(err); }
             };
 
-            player.onclick = () => { player.focus(); forceScale(); };
+            player.onclick = () => { 
+                player.focus(); 
+                forceScale(); 
+            };
         }
     </script>
 </body>
