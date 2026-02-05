@@ -6,9 +6,9 @@
     <title>NDS Responsive Emulator</title>
     <style>
         body {
-            font-family: sans-serif;
-            background-color: #121212;
-            color: white;
+            font-family: system-ui, sans-serif;
+            background-color: #1a1a1a;
+            color: #eee;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -17,90 +17,98 @@
             margin: 0;
         }
 
-        .emulator-container {
-            width: 90vw;
-            max-width: 500px; /* Adjust this to scale the DS size */
+        /* Container that handles the scaling */
+        .emu-card {
+            width: 95vw;
+            max-width: 450px;
             background: #000;
-            border: 8px solid #333;
-            border-radius: 15px;
+            border: 6px solid #333;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.7);
         }
 
-        /* This ensures the scaling stays crisp */
         desmond-player {
             width: 100%;
+            aspect-ratio: 256 / 384; /* Perfect DS aspect ratio */
             display: block;
-            aspect-ratio: 256 / 384; 
         }
 
-        .ui {
-            margin-top: 20px;
+        .bottom-bar {
+            margin-top: 25px;
             text-align: center;
+            background: #252525;
+            padding: 20px;
+            border-radius: 12px;
+            width: 300px;
         }
 
-        .status {
+        .status-light {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             color: #00ff88;
-            font-size: 0.8rem;
             margin-bottom: 10px;
-            height: 1.2rem;
         }
 
         input[type="file"] {
-            background: #222;
-            padding: 10px;
-            border-radius: 5px;
-            color: white;
-            cursor: pointer;
+            font-size: 0.8rem;
+            width: 100%;
         }
     </style>
 </head>
 <body>
 
-    <div class="emulator-container">
-        <desmond-player id="nds"></desmond-player>
+    <div class="emu-card">
+        <desmond-player id="nds-player"></desmond-player>
     </div>
 
-    <div class="ui">
-        <div id="msg" class="status">Initializing Engine...</div>
-        <input type="file" id="loader" accept=".nds">
-        <p style="color: #666; font-size: 0.7rem;">Controls: Arrows + Z, X, A, S, Q, W, Enter</p>
+    <div class="bottom-bar">
+        <div id="boot-status" class="status-light">Loading WASM...</div>
+        <input type="file" id="rom-selector" accept=".nds">
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
 
     <script>
-        const ndsElement = document.getElementById('nds');
-        const fileInput = document.getElementById('loader');
-        const msg = document.getElementById('msg');
+        // Wrapping in a block {} prevents "Identifier already declared" errors
+        {
+            const playerElement = document.getElementById('nds-player');
+            const fileInputControl = document.getElementById('rom-selector');
+            const statusDisplay = document.getElementById('boot-status');
 
-        // 1. Wait for the window to load so the script finds the player
-        window.onload = () => {
-            msg.innerText = "Engine Ready. Upload a ROM.";
-        };
+            // Wait for the library to signal it's ready
+            window.addEventListener('load', () => {
+                statusDisplay.innerText = "Engine Ready";
+            });
 
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            fileInputControl.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
 
-            msg.innerText = "Booting " + file.name + "...";
+                statusDisplay.innerText = "Booting Game...";
 
-            const romPath = URL.createObjectURL(file);
+                // Create a local blob URL for the ROM
+                const romBlobUrl = URL.createObjectURL(file);
 
-            // 2. Check if loadURL exists on the element. 
-            // If not, it means the WASM isn't quite ready yet.
-            if (typeof ndsElement.loadURL === 'function') {
-                try {
-                    await ndsElement.loadURL(romPath);
-                    msg.innerText = "Running!";
-                } catch (err) {
-                    msg.innerText = "Error: " + err.message;
+                // Check if the component is initialized
+                if (playerElement && typeof playerElement.loadURL === 'function') {
+                    try {
+                        await playerElement.loadURL(romBlobUrl);
+                        statusDisplay.innerText = "Playing: " + file.name;
+                        playerElement.focus();
+                    } catch (err) {
+                        statusDisplay.innerText = "Error Loading ROM";
+                        console.error(err);
+                    }
+                } else {
+                    statusDisplay.innerText = "Engine not ready - try again";
                 }
-            } else {
-                msg.innerText = "Engine still warming up... try again in 2 seconds.";
-                console.warn("loadURL not yet attached to the element.");
-            }
-        });
+            });
+
+            // Help keyboard focus
+            playerElement.addEventListener('mousedown', () => playerElement.focus());
+        }
     </script>
 </body>
 </html>
