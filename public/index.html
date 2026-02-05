@@ -3,13 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDS Online Emulator</title>
-    
-    <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
-
+    <title>NDS Responsive Emulator</title>
     <style>
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: sans-serif;
             background-color: #121212;
             color: white;
             display: flex;
@@ -18,102 +15,92 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            padding: 20px;
         }
 
-        .container {
+        .emulator-container {
+            width: 90vw;
+            max-width: 500px; /* Adjust this to scale the DS size */
+            background: #000;
+            border: 8px solid #333;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        /* This ensures the scaling stays crisp */
+        desmond-player {
             width: 100%;
-            max-width: 650px; 
+            display: block;
+            aspect-ratio: 256 / 384; 
+        }
+
+        .ui {
+            margin-top: 20px;
             text-align: center;
         }
 
-        /* Responsive scaling container */
-        .emulator-wrapper {
-            width: 100%;
-            aspect-ratio: 256 / 384; /* Standard DS dual screen ratio */
-            background: #000;
-            border: 4px solid #333;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-        }
-
-        desmond-player {
-            width: 100%;
-            height: 100%;
-        }
-
-        .ui-box {
-            margin-top: 20px;
-            padding: 20px;
-            background: #1e1e1e;
-            border-radius: 8px;
+        .status {
+            color: #00ff88;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            height: 1.2rem;
         }
 
         input[type="file"] {
-            display: block;
-            margin: 15px auto;
-            color: #aaa;
-        }
-
-        .status {
-            font-size: 0.85rem;
-            color: #00ff88;
-            margin-bottom: 10px;
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="emulator-wrapper">
-            <desmond-player id="nds-emulator-core"></desmond-player>
-        </div>
-
-        <div class="ui-box">
-            <div id="loading-status" class="status">Waiting for WASM engine...</div>
-            <input type="file" id="rom-loader" accept=".nds">
-            <p style="font-size: 0.8rem; color: #666;">Controls: Arrows, Z, X, A, S, Q, W, Enter, Shift</p>
-        </div>
+    <div class="emulator-container">
+        <desmond-player id="nds"></desmond-player>
     </div>
 
+    <div class="ui">
+        <div id="msg" class="status">Initializing Engine...</div>
+        <input type="file" id="loader" accept=".nds">
+        <p style="color: #666; font-size: 0.7rem;">Controls: Arrows + Z, X, A, S, Q, W, Enter</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
+
     <script>
-        // Use a unique name to avoid "already declared" errors
-        const myNdsPlayer = document.getElementById('nds-emulator-core');
-        const romInput = document.getElementById('rom-loader');
-        const statusText = document.getElementById('loading-status');
+        const ndsElement = document.getElementById('nds');
+        const fileInput = document.getElementById('loader');
+        const msg = document.getElementById('msg');
 
-        // Check if the WASM engine is ready
-        window.addEventListener('load', () => {
-            statusText.innerText = "Engine Ready. Please select a ROM.";
-        });
+        // 1. Wait for the window to load so the script finds the player
+        window.onload = () => {
+            msg.innerText = "Engine Ready. Upload a ROM.";
+        };
 
-        romInput.addEventListener('change', async (e) => {
+        fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            statusText.innerText = "Loading " + file.name + "...";
+            msg.innerText = "Booting " + file.name + "...";
 
-            // Create the ROM URL
-            const romBlob = URL.createObjectURL(file);
-            
-            try {
-                // The library sometimes takes a second to bridge the WASM functions
-                // We use the loadURL method provided by the <desmond-player> element
-                await myNdsPlayer.loadURL(romBlob);
-                statusText.innerText = "Playing: " + file.name;
-                myNdsPlayer.focus();
-            } catch (err) {
-                console.error(err);
-                statusText.innerText = "Error loading ROM. Check console.";
+            const romPath = URL.createObjectURL(file);
+
+            // 2. Check if loadURL exists on the element. 
+            // If not, it means the WASM isn't quite ready yet.
+            if (typeof ndsElement.loadURL === 'function') {
+                try {
+                    await ndsElement.loadURL(romPath);
+                    msg.innerText = "Running!";
+                } catch (err) {
+                    msg.innerText = "Error: " + err.message;
+                }
+            } else {
+                msg.innerText = "Engine still warming up... try again in 2 seconds.";
+                console.warn("loadURL not yet attached to the element.");
             }
         });
-
-        // Ensure keyboard focus works on click
-        myNdsPlayer.addEventListener('mousedown', () => {
-            myNdsPlayer.focus();
-        });
     </script>
-
 </body>
 </html>
