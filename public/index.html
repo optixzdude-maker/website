@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>DS Emulator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Nintendo DS Emulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
     body {
@@ -18,6 +18,7 @@
 
     h1 {
       margin: 16px 0 8px;
+      font-size: 20px;
     }
 
     input {
@@ -25,10 +26,17 @@
     }
 
     desmond-player {
-      width: 512px;
-      height: 384px;
-      max-width: 100vw;
+      display: block;
+      width: 100%;
+      max-width: 512px;
+      aspect-ratio: 256 / 384;
       background: black;
+    }
+
+    desmond-player canvas {
+      width: 100% !important;
+      height: auto !important;
+      image-rendering: pixelated;
     }
 
     footer {
@@ -36,37 +44,49 @@
       font-size: 12px;
       margin: 10px 0;
     }
+
+    @media (max-width: 600px) {
+      desmond-player {
+        max-width: 100vw;
+      }
+    }
   </style>
 </head>
+
 <body>
 
   <h1>Nintendo DS Emulator</h1>
 
-  <input type="file" id="romInput" accept=".nds">
+  <input type="file" id="romInput" accept=".nds" />
 
-  <desmond-player id="player"></desmond-player>
+  <desmond-player></desmond-player>
 
   <footer>
-    Runs locally in your browser · No uploads
+    Runs locally in your browser · In-game saves persist
   </footer>
 
-<script src="desmond.min.js"></script>
-<script>
-  const input = document.getElementById("romInput");
-  const dsPlayer = document.querySelector("desmond-player");
+  <script src="desmond.min.js"></script>
+  <script>
+    const input = document.getElementById("romInput");
+    const dsPlayer = document.querySelector("desmond-player");
 
-  let lastUrl;
+    let lastUrl;
 
-  input.addEventListener("change", () => {
-    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    input.addEventListener("change", () => {
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
 
-    const file = input.files[0];
-    if (!file) return;
+      const file = input.files[0];
+      if (!file) return;
 
-    lastUrl = URL.createObjectURL(file);
-    dsPlayer.loadURL(lastUrl);
-  });
-</script>
+      lastUrl = URL.createObjectURL(file);
+      dsPlayer.loadURL(lastUrl);
+    });
+
+    // Optional: ensure pixel-perfect scaling
+    window.addEventListener("resize", () => {
+      dsPlayer.style.width = Math.min(window.innerWidth, 512) + "px";
+    });
+  </script>
 
 </body>
 </html>
