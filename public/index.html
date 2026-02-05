@@ -50,18 +50,20 @@
     Runs locally in your browser · No uploads
   </footer>
 
-  <script src="desmond.min.js"></script>
+<script src="desmond.min.js"></script>
 <script>
   const input = document.getElementById("romInput");
+  const dsPlayer = document.querySelector("desmond-player");
 
-  input.addEventListener("change", async () => {
+  input.addEventListener("change", () => {
     const file = input.files[0];
     if (!file) return;
 
-    const buffer = await file.arrayBuffer();
+    // Create a temporary URL for the ROM
+    const url = URL.createObjectURL(file);
 
-    // Desmond global API
-    window.Desmond.loadRom(buffer);
+    // Load ROM into Desmond
+    dsPlayer.loadURL(url);
   });
 </script>
 
