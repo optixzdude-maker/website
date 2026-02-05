@@ -3,111 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDS Responsive Emulator</title>
+    <title>NDS Scaled Emulator</title>
     <style>
+        :root {
+            --emu-width: 400px; /* Change this to scale the whole thing */
+        }
+
         body {
-            font-family: system-ui, sans-serif;
-            background-color: #1a1a1a;
-            color: #eee;
+            background-color: #111;
+            color: #fff;
+            font-family: sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-
-        /* Container that handles the scaling */
-        .emu-card {
-            width: 95vw;
-            max-width: 450px;
-            background: #000;
-            border: 6px solid #333;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.7);
-        }
-
-        desmond-player {
-            width: 100%;
-            aspect-ratio: 256 / 384; /* Perfect DS aspect ratio */
-            display: block;
-        }
-
-        .bottom-bar {
-            margin-top: 25px;
-            text-align: center;
-            background: #252525;
             padding: 20px;
+        }
+
+        /* 1. The Outer Container controls the size on the page */
+        .scaler-box {
+            width: var(--emu-width);
+            position: relative;
+            background: #000;
+            border: 10px solid #333;
             border-radius: 12px;
-            width: 300px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+            overflow: hidden;
         }
 
-        .status-light {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #00ff88;
-            margin-bottom: 10px;
+        /* 2. Force the player to fill the box and maintain ratio */
+        desmond-player {
+            width: 100% !important;
+            height: auto !important;
+            display: block;
+            aspect-ratio: 256 / 384;
         }
 
-        input[type="file"] {
-            font-size: 0.8rem;
-            width: 100%;
+        /* 3. Deep Target: The engine injects a canvas. We MUST force that canvas to scale. */
+        desmond-player canvas {
+            width: 100% !important;
+            height: 100% !important;
+            image-rendering: pixelated; /* Keeps it sharp, not blurry */
+            image-rendering: crisp-edges;
+        }
+
+        .controls {
+            margin-top: 20px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <div class="emu-card">
-        <desmond-player id="nds-player"></desmond-player>
+    <div class="scaler-box">
+        <desmond-player id="nds-core"></desmond-player>
     </div>
 
-    <div class="bottom-bar">
-        <div id="boot-status" class="status-light">Loading WASM...</div>
-        <input type="file" id="rom-selector" accept=".nds">
+    <div class="controls">
+        <p id="status">Loading WASM Engine...</p>
+        <input type="file" id="rom-file" accept=".nds">
+        <div style="margin-top:10px; font-size: 12px; color: #777;">
+            Change <b>--emu-width</b> in CSS to resize.
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/Unzor/desmond/cdn/desmond.min.js"></script>
 
     <script>
-        // Wrapping in a block {} prevents "Identifier already declared" errors
         {
-            const playerElement = document.getElementById('nds-player');
-            const fileInputControl = document.getElementById('rom-selector');
-            const statusDisplay = document.getElementById('boot-status');
+            const emu = document.getElementById('nds-core');
+            const status = document.getElementById('status');
+            const input = document.getElementById('rom-file');
 
-            // Wait for the library to signal it's ready
-            window.addEventListener('load', () => {
-                statusDisplay.innerText = "Engine Ready";
-            });
+            window.onload = () => { status.innerText = "Engine Ready."; };
 
-            fileInputControl.addEventListener('change', async (event) => {
-                const file = event.target.files[0];
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
                 if (!file) return;
 
-                statusDisplay.innerText = "Booting Game...";
-
-                // Create a local blob URL for the ROM
-                const romBlobUrl = URL.createObjectURL(file);
-
-                // Check if the component is initialized
-                if (playerElement && typeof playerElement.loadURL === 'function') {
-                    try {
-                        await playerElement.loadURL(romBlobUrl);
-                        statusDisplay.innerText = "Playing: " + file.name;
-                        playerElement.focus();
-                    } catch (err) {
-                        statusDisplay.innerText = "Error Loading ROM";
-                        console.error(err);
-                    }
-                } else {
-                    statusDisplay.innerText = "Engine not ready - try again";
+                const url = URL.createObjectURL(file);
+                if (typeof emu.loadURL === 'function') {
+                    await emu.loadURL(url);
+                    status.innerText = "Playing: " + file.name;
+                    
+                    // FORCE RE-CALCULATION: Sometimes the canvas needs a nudge after loading
+                    window.dispatchEvent(new Event('resize'));
                 }
-            });
-
-            // Help keyboard focus
-            playerElement.addEventListener('mousedown', () => playerElement.focus());
+            };
         }
     </script>
 </body>
