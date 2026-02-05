@@ -10,17 +10,30 @@
             color: #e0e0e0;
             font-family: 'Segoe UI', system-ui, sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             min-height: 100vh;
             margin: 0;
             padding: 20px;
         }
 
+        /* Main layout container */
+        .main-layout {
+            display: flex;
+            flex-direction: row; /* UI to the right */
+            gap: 30px;
+            align-items: flex-start;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        /* Emulator column */
+        .emu-column {
+            flex: 0 0 450px;
+        }
+
         .emu-container {
             width: 100%;
-            max-width: 450px;
             aspect-ratio: 256 / 384;
             background: #000;
             border: 10px solid #2a2a2a;
@@ -30,45 +43,41 @@
             position: relative;
         }
 
-        desmond-player {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
+        desmond-player { width: 100%; height: 100%; display: block; }
 
+        /* UI column */
         .ui-panel {
-            width: 100%;
-            max-width: 450px;
-            margin-top: 20px;
-            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
-        .button-row {
+        .button-stack {
             display: flex;
+            flex-direction: column;
             gap: 10px;
-            margin-bottom: 15px;
         }
 
         button {
-            flex: 1;
             background: #333;
             color: white;
             border: 1px solid #444;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.85rem;
-            outline: none; /* Removes the highlight ring */
+            font-size: 0.9rem;
+            outline: none;
         }
 
         button:hover { background: #444; }
-        button:focus { background: #333; } /* Prevents permanent highlight after click */
+        button:focus { background: #333; }
 
         h1 { 
-            margin: 15px 0; 
+            margin: 5px 0; 
             font-weight: 400; 
             color: #888; 
-            font-size: 1.2rem;
+            font-size: 1.4rem;
         }
 
         .controls-card {
@@ -76,7 +85,7 @@
             padding: 15px;
             border-radius: 10px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr); /* 2 columns for the side panel */
             gap: 8px;
             border: 1px solid #333;
         }
@@ -85,39 +94,48 @@
             background: #2d2d2d;
             padding: 6px;
             border-radius: 4px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-align: center;
         }
 
-        .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
+        .key b { color: #50fa7b; display: block; font-size: 0.85rem; }
+
+        /* Mobile fallback: stack vertically if screen is too small */
+        @media (max-width: 800px) {
+            .main-layout { flex-direction: column; align-items: center; }
+            .emu-column { flex: 0 0 auto; width: 100%; max-width: 450px; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="emu-container" id="emu-box">
-        <desmond-player id="player"></desmond-player>
-    </div>
-    
-    <div class="ui-panel">
-        <input type="file" id="file-selector" accept=".nds" style="display:none">
-        
-        <div class="button-row">
-            <button id="load-btn">📁 Load ROM</button>
-            <button id="dl-btn">💾 Export Save</button>
+    <div class="main-layout">
+        <div class="emu-column">
+            <div class="emu-container" id="emu-box">
+                <desmond-player id="player"></desmond-player>
+            </div>
         </div>
 
-        <h1>DS Emulator</h1>
+        <div class="ui-panel">
+            <input type="file" id="file-selector" accept=".nds" style="display:none">
+            
+            <div class="button-stack">
+                <button id="load-btn">📁 Load ROM</button>
+                <button id="sync-btn">💾 Sync Save to Browser</button>
+            </div>
 
-        <div class="controls-card">
-            <div class="key">DPAD <b>ARROWS</b></div>
-            <div class="key">A <b>Z</b></div>
-            <div class="key">B <b>X</b></div>
-            <div class="key">X <b>S</b></div>
-            <div class="key">Y <b>A</b></div>
-            <div class="key">L / R <b>Q / W</b></div>
-            <div class="key">START <b>ENTER</b></div>
-            <div class="key">SELECT <b>SHIFT</b></div>
-            <div class="key">MIC <b>R</b></div>
+            <h1>DS Emulator</h1>
+
+            <div class="controls-card">
+                <div class="key">DPAD <b>ARROWS</b></div>
+                <div class="key">A <b>Z</b></div>
+                <div class="key">B <b>X</b></div>
+                <div class="key">X <b>S</b></div>
+                <div class="key">Y <b>A</b></div>
+                <div class="key">L / R <b>Q / W</b></div>
+                <div class="key">START <b>ENTER</b></div>
+                <div class="key">SELECT <b>SHIFT</b></div>
+            </div>
         </div>
     </div>
 
@@ -128,8 +146,8 @@
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
             const loadBtn = document.getElementById('load-btn');
-            const dlBtn = document.getElementById('dl-btn');
-            let currentFileName = "";
+            const syncBtn = document.getElementById('sync-btn');
+            let currentSaveName = "";
 
             const forceScale = () => {
                 if (player.shadowRoot) {
@@ -139,47 +157,43 @@
                 }
             };
 
-            // Fix for Chromebook Hardware Keys (Volume + Fullscreen)
+            // Global Bypass for ALL Function Keys (Chromebook Top Row)
             window.addEventListener('keydown', (e) => {
-                const systemKeys = [
-                    'AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 
-                    'BrightnessUp', 'BrightnessDown', 'F4', 'Fullscreen'
-                ];
-                // Chromebooks often map the Fullscreen key to F4 or a dedicated 'Fullscreen' key
-                if (systemKeys.includes(e.key) || e.keyCode === 122) { 
+                // F1 through F12 are typically 112 through 123
+                if (e.keyCode >= 112 && e.keyCode <= 123) {
                     e.stopImmediatePropagation(); 
                 }
             }, true);
 
             loadBtn.onclick = () => {
                 fileIn.click();
-                loadBtn.blur(); // Remove focus from button so it doesn't stay highlighted
+                loadBtn.blur();
             };
 
-            dlBtn.onclick = () => {
-                dlBtn.blur();
+            // Manual Save Sync
+            syncBtn.onclick = () => {
+                syncBtn.blur();
+                if (!currentSaveName) {
+                    alert("Load a game first!");
+                    return;
+                }
                 try {
                     const data = player.emscripten.FS.readFile('/save.sav');
-                    const blob = new Blob([data], { type: "application/octet-stream" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = currentFileName ? currentFileName.replace('.nds', '.sav') : 'game.sav';
-                    a.click();
+                    localStorage.setItem(currentSaveName, JSON.stringify(Array.from(data)));
+                    alert("Save successfully synced to browser!");
                 } catch(e) {
-                    alert("No save file found yet. Save in-game first!");
+                    alert("No in-game save data found. Save inside the game menu first!");
                 }
             };
 
             fileIn.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                currentFileName = file.name;
+                currentSaveName = `save_${file.name}`;
                 
                 try {
                     const url = URL.createObjectURL(file);
-                    const saveName = `save_${file.name}`;
-                    const savedData = localStorage.getItem(saveName);
+                    const savedData = localStorage.getItem(currentSaveName);
                     
                     await player.loadURL(url);
                     
@@ -187,17 +201,7 @@
                         const uint8Array = new Uint8Array(JSON.parse(savedData));
                         player.emscripten.FS.writeFile('/save.sav', uint8Array);
                     }
-
                     forceScale();
-
-                    // Autosave every 2 minutes
-                    setInterval(() => {
-                        try {
-                            const data = player.emscripten.FS.readFile('/save.sav');
-                            localStorage.setItem(saveName, JSON.stringify(Array.from(data)));
-                        } catch(e) {}
-                    }, 120000);
-
                 } catch (err) { console.error(err); }
             };
 
