@@ -9,8 +9,8 @@
 
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #1a1a1a;
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #121212;
             color: white;
             display: flex;
             flex-direction: column;
@@ -23,71 +23,95 @@
 
         .container {
             width: 100%;
-            max-width: 600px; /* Adjust this to change the size of the DS screens */
+            max-width: 650px; 
             text-align: center;
         }
 
-        /* The desmond-player tag is responsive by default */
-        desmond-player {
+        /* Responsive scaling container */
+        .emulator-wrapper {
             width: 100%;
-            border: 4px solid #333;
-            border-radius: 8px;
+            aspect-ratio: 256 / 384; /* Standard DS dual screen ratio */
             background: #000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 4px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         }
 
-        .controls {
+        desmond-player {
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-box {
             margin-top: 20px;
-            padding: 15px;
-            background: #2a2a2a;
+            padding: 20px;
+            background: #1e1e1e;
             border-radius: 8px;
         }
 
         input[type="file"] {
-            margin: 10px 0;
-            color: #ccc;
+            display: block;
+            margin: 15px auto;
+            color: #aaa;
         }
 
-        h1 { margin-bottom: 10px; font-size: 1.5rem; }
-        p { color: #888; font-size: 0.9rem; }
+        .status {
+            font-size: 0.85rem;
+            color: #00ff88;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>NDS Emulator</h1>
-        
-        <desmond-player id="nds-player"></desmond-player>
-
-        <div class="controls">
-            <p>Select a .nds ROM file to start playing</p>
-            <input type="file" id="rom-upload" accept=".nds">
+        <div class="emulator-wrapper">
+            <desmond-player id="nds-emulator-core"></desmond-player>
         </div>
 
-        <div style="margin-top: 20px; text-align: left; font-size: 0.8rem; color: #666;">
-            <strong>Controls:</strong><br>
-            DPAD: Arrow Keys | A/B: Z/X | X/Y: S/A | L/R: Q/W | Start/Select: Enter/Shift
+        <div class="ui-box">
+            <div id="loading-status" class="status">Waiting for WASM engine...</div>
+            <input type="file" id="rom-loader" accept=".nds">
+            <p style="font-size: 0.8rem; color: #666;">Controls: Arrows, Z, X, A, S, Q, W, Enter, Shift</p>
         </div>
     </div>
 
     <script>
-        const player = document.getElementById('nds-player');
-        const uploader = document.getElementById('rom-upload');
+        // Use a unique name to avoid "already declared" errors
+        const myNdsPlayer = document.getElementById('nds-emulator-core');
+        const romInput = document.getElementById('rom-loader');
+        const statusText = document.getElementById('loading-status');
 
-        uploader.addEventListener('change', (e) => {
+        // Check if the WASM engine is ready
+        window.addEventListener('load', () => {
+            statusText.innerText = "Engine Ready. Please select a ROM.";
+        });
+
+        romInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
-            if (file) {
-                // Convert the uploaded file to a URL the emulator can read
-                const romURL = URL.createObjectURL(file);
-                
-                // Load the ROM into the player
-                player.loadURL(romURL);
+            if (!file) return;
+
+            statusText.innerText = "Loading " + file.name + "...";
+
+            // Create the ROM URL
+            const romBlob = URL.createObjectURL(file);
+            
+            try {
+                // The library sometimes takes a second to bridge the WASM functions
+                // We use the loadURL method provided by the <desmond-player> element
+                await myNdsPlayer.loadURL(romBlob);
+                statusText.innerText = "Playing: " + file.name;
+                myNdsPlayer.focus();
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "Error loading ROM. Check console.";
             }
         });
 
-        // Optional: Auto-focus the player so keys work immediately
-        player.addEventListener('click', () => {
-            player.focus();
+        // Ensure keyboard focus works on click
+        myNdsPlayer.addEventListener('mousedown', () => {
+            myNdsPlayer.focus();
         });
     </script>
 
