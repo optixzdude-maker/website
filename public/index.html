@@ -18,8 +18,6 @@
             padding: 20px;
         }
 
-        h1 { margin-bottom: 20px; font-weight: 400; color: #888; }
-
         .emu-container {
             width: 100%;
             max-width: 450px;
@@ -42,13 +40,13 @@
             width: 100%;
             max-width: 450px;
             margin-top: 20px;
+            text-align: center;
         }
 
         .button-row {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
+            margin-bottom: 15px;
         }
 
         button {
@@ -60,9 +58,18 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.85rem;
+            outline: none; /* Removes the highlight ring */
         }
 
         button:hover { background: #444; }
+        button:focus { background: #333; } /* Prevents permanent highlight after click */
+
+        h1 { 
+            margin: 15px 0; 
+            font-weight: 400; 
+            color: #888; 
+            font-size: 1.2rem;
+        }
 
         .controls-card {
             background: #1e1e1e;
@@ -83,14 +90,9 @@
         }
 
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
-
-        /* Fullscreen styles */
-        :fullscreen .emu-container { max-width: none; width: 100vw; height: 100vh; border: none; border-radius: 0; }
     </style>
 </head>
 <body>
-
-    <h1>DS Emulator</h1>
 
     <div class="emu-container" id="emu-box">
         <desmond-player id="player"></desmond-player>
@@ -100,10 +102,11 @@
         <input type="file" id="file-selector" accept=".nds" style="display:none">
         
         <div class="button-row">
-            <button onclick="document.getElementById('file-selector').click()">📂 Load ROM</button>
-            <button id="fs-btn">🖥️ Fullscreen</button>
+            <button id="load-btn">📁 Load ROM</button>
             <button id="dl-btn">💾 Export Save</button>
         </div>
+
+        <h1>DS Emulator</h1>
 
         <div class="controls-card">
             <div class="key">DPAD <b>ARROWS</b></div>
@@ -124,7 +127,7 @@
         {
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
-            const fsBtn = document.getElementById('fs-btn');
+            const loadBtn = document.getElementById('load-btn');
             const dlBtn = document.getElementById('dl-btn');
             let currentFileName = "";
 
@@ -136,24 +139,25 @@
                 }
             };
 
-            // Volume Key Fix
+            // Fix for Chromebook Hardware Keys (Volume + Fullscreen)
             window.addEventListener('keydown', (e) => {
-                const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'BrightnessUp', 'BrightnessDown'];
-                if (systemKeys.includes(e.key)) e.stopImmediatePropagation();
+                const systemKeys = [
+                    'AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 
+                    'BrightnessUp', 'BrightnessDown', 'F4', 'Fullscreen'
+                ];
+                // Chromebooks often map the Fullscreen key to F4 or a dedicated 'Fullscreen' key
+                if (systemKeys.includes(e.key) || e.keyCode === 122) { 
+                    e.stopImmediatePropagation(); 
+                }
             }, true);
 
-            // Fullscreen Logic
-            fsBtn.onclick = () => {
-                const box = document.getElementById('emu-box');
-                if (!document.fullscreenElement) {
-                    box.requestFullscreen().catch(err => alert("Error enabling fullscreen"));
-                } else {
-                    document.exitFullscreen();
-                }
+            loadBtn.onclick = () => {
+                fileIn.click();
+                loadBtn.blur(); // Remove focus from button so it doesn't stay highlighted
             };
 
-            // Download Save Logic
             dlBtn.onclick = () => {
+                dlBtn.blur();
                 try {
                     const data = player.emscripten.FS.readFile('/save.sav');
                     const blob = new Blob([data], { type: "application/octet-stream" });
@@ -186,7 +190,7 @@
 
                     forceScale();
 
-                    // Autosave every 2 minutes (120000ms)
+                    // Autosave every 2 minutes
                     setInterval(() => {
                         try {
                             const data = player.emscripten.FS.readFile('/save.sav');
