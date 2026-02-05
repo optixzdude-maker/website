@@ -1,86 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Nintendo DS Emulator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Nintendo DS Emulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      margin: 0;
-      background: #000;
-      color: #fff;
-      font-family: system-ui, sans-serif;
-      text-align: center;
-    }
-    
-    h1 {
-      margin: 16px 0 8px;
-      font-size: 20px;
-    }
-    
-    input {
-      margin-bottom: 12px;
-    }
-    
-    /* THIS is what centers it correctly */
-    .emulator-wrapper {
-      width: 75vw;          /* BIGGER */
-      max-width: 768px;     /* upscale safely */
-      margin: 0 auto;       /* true horizontal centering */
-    }
-    
-    desmond-player {
-      display: block;
-      width: 100%;
-      background: black;
-    }
-    
-    desmond-player canvas {
-      image-rendering: pixelated;
-    }
-    
-    footer {
-      opacity: 0.6;
-      font-size: 12px;
-      margin: 10px 0;
-    }
-  </style>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    text-align: center;
+  }
+
+  h1 {
+    margin: 16px 0 8px;
+    font-size: 20px;
+  }
+
+  input, button {
+    margin: 6px;
+  }
+
+  /* Outer centering container */
+  .center {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* This wrapper controls SCALE, not size */
+  .scale-wrapper {
+    transform-origin: top center;
+  }
+
+  desmond-player {
+    display: block;
+    background: black;
+  }
+
+  desmond-player canvas {
+    image-rendering: pixelated;
+  }
+
+  footer {
+    opacity: 0.6;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+</style>
 </head>
 
 <body>
 
-  <h1>Nintendo DS Emulator</h1>
+<h1>Nintendo DS Emulator</h1>
 
-  <input type="file" id="romInput" accept=".nds">
+<input type="file" id="romInput" accept=".nds">
+<button id="layoutBtn">Switch Layout</button>
 
-  <div class="emulator-wrapper">
-    <desmond-player></desmond-player>
+<div class="center">
+  <div class="scale-wrapper" id="scaleWrapper">
+    <desmond-player id="player"></desmond-player>
   </div>
+</div>
 
-  <footer>
-    Runs locally in your browser · In-game saves persist
-  </footer>
+<footer>
+  Runs locally · In-game saves persist
+</footer>
 
-  <script src="desmond.min.js"></script>
-  <script>
-    const input = document.getElementById("romInput");
-    const dsPlayer = document.querySelector("desmond-player");
+<script src="desmond.min.js"></script>
+<script>
+  const input = document.getElementById("romInput");
+  const player = document.getElementById("player");
+  const scaleWrapper = document.getElementById("scaleWrapper");
+  const layoutBtn = document.getElementById("layoutBtn");
 
-    let lastUrl = null;
+  let lastUrl = null;
+  let scale = 2;           // 🔥 VISUAL SCALE (2x looks good)
+  let horizontal = true;   // left/right by default
 
-    input.addEventListener("change", () => {
-      if (lastUrl) URL.revokeObjectURL(lastUrl);
+  // Apply visual scale safely
+  function applyScale() {
+    scaleWrapper.style.transform = `scale(${scale})`;
+  }
 
-      const file = input.files[0];
-      if (!file) return;
+  applyScale();
 
-      lastUrl = URL.createObjectURL(file);
+  // Load ROM
+  input.addEventListener("change", () => {
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    const file = input.files[0];
+    if (!file) return;
 
-      // IMPORTANT: call loadURL only once per change
-      dsPlayer.loadURL(lastUrl);
-    });
-  </script>
+    lastUrl = URL.createObjectURL(file);
+    player.loadURL(lastUrl);
+  });
+
+  // Toggle screen layout
+  layoutBtn.addEventListener("click", () => {
+    horizontal = !horizontal;
+
+    // Force Desmond layout by aspect ratio
+    scaleWrapper.style.width = horizontal ? "800px" : "300px";
+  });
+</script>
 
 </body>
 </html>
