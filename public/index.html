@@ -11,37 +11,35 @@
       background: #000;
       color: #fff;
       font-family: system-ui, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      text-align: center;
     }
-
+    
     h1 {
       margin: 16px 0 8px;
       font-size: 20px;
     }
-
+    
     input {
       margin-bottom: 12px;
     }
-
-    /* SCALE THE WHOLE EMULATOR — DO NOT RESIZE INTERNALLY */
+    
+    /* THIS is what centers it correctly */
     .emulator-wrapper {
-      width: 90vw;
-      max-width: 512px;
+      width: 75vw;          /* BIGGER */
+      max-width: 768px;     /* upscale safely */
+      margin: 0 auto;       /* true horizontal centering */
     }
-
+    
     desmond-player {
       display: block;
       width: 100%;
       background: black;
     }
-
-    /* Allow Desmond to manage canvases itself */
+    
     desmond-player canvas {
       image-rendering: pixelated;
     }
-
+    
     footer {
       opacity: 0.6;
       font-size: 12px;
