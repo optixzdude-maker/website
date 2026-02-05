@@ -18,18 +18,22 @@
             padding: 20px;
         }
 
-        /* The scaling container */
-        .emu-container {
+        /* Container that handles the overall size on your page */
+        #emu-wrapper {
             width: 100%;
-            max-width: 450px; /* Resize this to make the emulator bigger/smaller */
-            aspect-ratio: 256 / 384;
+            max-width: 500px; /* Adjust this to change default size */
             background: #000;
             border: 10px solid #2a2a2a;
             border-radius: 12px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.6);
             overflow: hidden;
-            position: relative;
+            transition: max-width 0.3s ease;
         }
+
+        /* Default Vertical Ratio */
+        .vertical { aspect-ratio: 256 / 384; max-width: 450px !important; }
+        /* Horizontal Ratio (Screens side-by-side) */
+        .horizontal { aspect-ratio: 512 / 192; max-width: 800px !important; }
 
         desmond-player {
             width: 100%;
@@ -38,19 +42,38 @@
         }
 
         .ui-panel {
-            margin-top: 25px;
+            margin-top: 20px;
             width: 100%;
-            max-width: 450px;
+            max-width: 500px;
+            text-align: center;
         }
 
         .status {
-            text-align: center;
             font-size: 0.9rem;
             color: #00ff88;
             margin-bottom: 15px;
+            font-weight: bold;
         }
 
-        /* Controller UI */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        button, .file-label {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        button:hover { background: #444; }
+
         .controls-card {
             background: #1e1e1e;
             padding: 15px;
@@ -66,28 +89,25 @@
             padding: 6px;
             border-radius: 4px;
             font-size: 0.75rem;
-            text-align: center;
         }
 
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
-
-        input[type="file"] {
-            width: 100%;
-            margin-bottom: 20px;
-            color: #aaa;
-        }
     </style>
 </head>
 <body>
 
-    <div class="status" id="status-text">Engine Ready</div>
-
-    <div class="emu-container">
+    <div id="emu-wrapper" class="vertical">
         <desmond-player id="player"></desmond-player>
     </div>
 
     <div class="ui-panel">
-        <input type="file" id="file-selector" accept=".nds">
+        <div class="status" id="status-text">Engine Ready</div>
+
+        <div class="button-group">
+            <input type="file" id="file-selector" accept=".nds" style="display:none">
+            <button onclick="document.getElementById('file-selector').click()">📁 Load ROM</button>
+            <button id="layout-btn">↔️ Toggle Layout</button>
+        </div>
 
         <div class="controls-card">
             <div class="key">DPAD <b>ARROWS</b></div>
@@ -107,18 +127,32 @@
     <script>
         {
             const player = document.getElementById('player');
-            const fileIn = document.getElementById('file-selector');
+            const wrapper = document.getElementById('emu-wrapper');
             const status = document.getElementById('status-text');
+            const layoutBtn = document.getElementById('layout-btn');
+            let isHorizontal = false;
 
-            // --- THE MAGIC FIX FOR SCALING ---
-            // This function forces the internal canvas to stretch
-            const forceScale = () => {
+            // Logic to force scaling and layout inside the Shadow DOM
+            const applyInternalStyles = () => {
                 if (player.shadowRoot) {
+                    // Remove old style if exists
+                    const oldStyle = player.shadowRoot.querySelector('#custom-emu-style');
+                    if (oldStyle) oldStyle.remove();
+
                     const style = document.createElement('style');
+                    style.id = 'custom-emu-style';
+                    
+                    // We toggle the flex-direction of the internal container
                     style.textContent = `
-                        canvas { 
+                        #container { 
+                            display: flex !important; 
+                            flex-direction: ${isHorizontal ? 'row' : 'column'} !important; 
                             width: 100% !important; 
                             height: 100% !important; 
+                        }
+                        canvas { 
+                            width: ${isHorizontal ? '50%' : '100%'} !important; 
+                            height: ${isHorizontal ? '100%' : '50%'} !important; 
                             object-fit: contain; 
                             image-rendering: pixelated;
                         }
@@ -127,31 +161,32 @@
                 }
             };
 
-            fileIn.onchange = async (e) => {
+            // Layout Toggle Handler
+            layoutBtn.onclick = () => {
+                isHorizontal = !isHorizontal;
+                wrapper.className = isHorizontal ? 'horizontal' : 'vertical';
+                applyInternalStyles();
+            };
+
+            // File Loading
+            document.getElementById('file-selector').onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
 
                 status.innerText = "Loading " + file.name + "...";
-                
                 try {
                     const url = URL.createObjectURL(file);
                     await player.loadURL(url);
-                    
-                    // Apply scaling fix after the game starts
-                    forceScale(); 
-                    
+                    applyInternalStyles(); 
                     status.innerText = "Running: " + file.name;
-                    player.focus();
                 } catch (err) {
                     status.innerText = "Error loading ROM.";
-                    console.error(err);
                 }
             };
 
-            // Fix focus on click
             player.onclick = () => {
                 player.focus();
-                forceScale(); // Run again just in case
+                applyInternalStyles();
             };
         }
     </script>
