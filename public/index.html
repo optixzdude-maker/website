@@ -30,11 +30,7 @@
             position: relative;
         }
 
-        desmond-player {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
+        desmond-player { width: 100%; height: 100%; display: block; }
 
         .ui-panel {
             width: 100%;
@@ -43,11 +39,7 @@
             text-align: center;
         }
 
-        .button-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
+        .button-row { display: flex; gap: 10px; margin-bottom: 15px; }
 
         button {
             flex: 1;
@@ -62,8 +54,7 @@
         }
 
         button:hover { background: #444; }
-        button:active { transform: translateY(1px); }
-
+        
         h1 { margin: 15px 0; font-weight: 400; color: #888; font-size: 1.2rem; }
 
         .controls-card {
@@ -102,11 +93,7 @@
             padding-top: 15px;
         }
 
-        .file-ops button {
-            background: #222;
-            font-size: 0.75rem;
-            padding: 8px;
-        }
+        .file-ops button { background: #222; font-size: 0.75rem; padding: 8px; }
     </style>
 </head>
 <body>
@@ -121,7 +108,6 @@
         
         <div class="button-row">
             <button id="load-btn">📁 Load ROM</button>
-            <button id="sync-btn">💾 Sync Save to Browser</button>
         </div>
 
         <h1>DS Emulator</h1>
@@ -141,7 +127,7 @@
         <div id="save-info" class="save-status">Waiting for ROM...</div>
 
         <div class="file-ops">
-            <button id="export-btn">📤 Export .sav File</button>
+            <button id="export-btn">📤 Export .sav Backup</button>
             <button id="import-btn">📥 Import .sav File</button>
         </div>
     </div>
@@ -154,13 +140,20 @@
             const fileIn = document.getElementById('file-selector');
             const saveIn = document.getElementById('save-importer');
             const loadBtn = document.getElementById('load-btn');
-            const syncBtn = document.getElementById('sync-btn');
             const exportBtn = document.getElementById('export-btn');
             const importBtn = document.getElementById('import-btn');
             const saveInfo = document.getElementById('save-info');
             
             let currentFileName = "";
             let currentSaveKey = "";
+
+            // AGGRESSIVE CHROMEBOOK KEY FIX
+            window.addEventListener('keydown', (e) => {
+                const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'F4', 'Fullscreen', 'F11'];
+                if (systemKeys.includes(e.key) || (e.keyCode >= 112 && e.keyCode <= 123)) {
+                    e.stopImmediatePropagation(); // Tell the emulator to ignore this key
+                }
+            }, { capture: true, passive: false });
 
             const forceScale = () => {
                 if (player.shadowRoot) {
@@ -170,37 +163,22 @@
                 }
             };
 
-            // SYSTEM KEY BYPASS - Chromebook Volume & Fullscreen (F4)
-            // We use 'useCapture: true' to catch these BEFORE the emulator does
-            window.addEventListener('keydown', (e) => {
-                const systemKeys = [
-                    'AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 
-                    'BrightnessUp', 'BrightnessDown', 'F4', 'Fullscreen', 'F11'
-                ];
-                if (systemKeys.includes(e.key) || (e.keyCode >= 112 && e.keyCode <= 123)) {
-                    e.stopImmediatePropagation(); 
-                }
-            }, { capture: true });
+            // AUTOSAVE LOGIC (Like webretro)
+            setInterval(() => {
+                if (!currentSaveKey || !player.emscripten) return;
+                try {
+                    const data = player.emscripten.FS.readFile('/save.sav');
+                    if (data && data.length > 0) {
+                        localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
+                        saveInfo.innerText = "Autosaved to browser...";
+                        saveInfo.style.color = "#50fa7b";
+                        setTimeout(() => { if(saveInfo.innerText === "Autosaved to browser...") saveInfo.innerText = "Ready"; }, 2000);
+                    }
+                } catch(e) { /* Game hasn't created a save file yet */ }
+            }, 10000); 
 
             loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
             importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
-
-            syncBtn.onclick = async () => {
-                syncBtn.blur();
-                if (!currentSaveKey) return;
-                
-                try {
-                    // Force the emulator to flush its memory to the virtual file
-                    if (player.emscripten && player.emscripten.FS) {
-                        const data = player.emscripten.FS.readFile('/save.sav');
-                        localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                        saveInfo.innerText = "Browser save updated!";
-                        saveInfo.style.color = "#00ff88";
-                    }
-                } catch(e) { 
-                    alert("Error: No in-game save detected. Please save in the Pokémon menu first, wait 2 seconds, then try again."); 
-                }
-            };
 
             exportBtn.onclick = () => {
                 exportBtn.blur();
@@ -218,15 +196,12 @@
             saveIn.onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file || !currentSaveKey) return;
-                
                 const reader = new FileReader();
                 reader.onload = () => {
                     const uint8Array = new Uint8Array(reader.result);
                     player.emscripten.FS.writeFile('/save.sav', uint8Array);
                     localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
-                    saveInfo.innerText = "External save imported!";
-                    saveInfo.style.color = "#00ff88";
-                    alert("Imported! Please reload the ROM to apply the save.");
+                    alert("Imported! Reload the ROM to apply.");
                 };
                 reader.readAsArrayBuffer(file);
             };
@@ -245,20 +220,14 @@
                     if (savedData) {
                         const uint8Array = new Uint8Array(JSON.parse(savedData));
                         player.emscripten.FS.writeFile('/save.sav', uint8Array);
-                        saveInfo.innerText = "Browser save detected & loaded";
-                        saveInfo.style.color = "#00ff88";
-                    } else {
-                        saveInfo.innerText = "No browser save found";
-                        saveInfo.style.color = "#888";
+                        saveInfo.innerText = "Browser save restored!";
+                        saveInfo.style.color = "#50fa7b";
                     }
-                    setTimeout(forceScale, 500); // Wait for boot to scale
+                    setTimeout(forceScale, 500);
                 } catch (err) { console.error(err); }
             };
 
-            player.onclick = () => { 
-                player.focus(); 
-                forceScale(); 
-            };
+            player.onclick = () => { player.focus(); forceScale(); };
         }
     </script>
 </body>
