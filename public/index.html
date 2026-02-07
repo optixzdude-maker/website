@@ -55,7 +55,7 @@
 
         button:hover { background: #444; }
         
-        h1 { margin: 15px 0; font-weight: 400; color: #888; font-size: 1.2rem; }
+        h1 { margin: 10px 0; font-weight: 400; color: #888; font-size: 1.2rem; }
 
         .controls-card {
             background: #1e1e1e;
@@ -81,7 +81,7 @@
         .save-status {
             font-size: 0.8rem;
             margin-bottom: 10px;
-            color: #666;
+            color: #ffb86c;
             font-style: italic;
             min-height: 1.2em;
         }
@@ -108,6 +108,7 @@
         
         <div class="button-row">
             <button id="load-btn">📁 Load ROM</button>
+            <button id="force-save-btn" style="background: #2d5a27;">💾 Force Sync Save</button>
         </div>
 
         <h1>DS Emulator</h1>
@@ -140,6 +141,7 @@
             const fileIn = document.getElementById('file-selector');
             const saveIn = document.getElementById('save-importer');
             const loadBtn = document.getElementById('load-btn');
+            const forceSaveBtn = document.getElementById('force-save-btn');
             const exportBtn = document.getElementById('export-btn');
             const importBtn = document.getElementById('import-btn');
             const saveInfo = document.getElementById('save-info');
@@ -147,13 +149,13 @@
             let currentFileName = "";
             let currentSaveKey = "";
 
-            // AGGRESSIVE CHROMEBOOK KEY FIX
+            // RE-ENABLE SYSTEM KEYS
             window.addEventListener('keydown', (e) => {
                 const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'F4', 'Fullscreen', 'F11'];
                 if (systemKeys.includes(e.key) || (e.keyCode >= 112 && e.keyCode <= 123)) {
-                    e.stopImmediatePropagation(); // Tell the emulator to ignore this key
+                    e.stopImmediatePropagation();
                 }
-            }, { capture: true, passive: false });
+            }, { capture: true });
 
             const forceScale = () => {
                 if (player.shadowRoot) {
@@ -163,34 +165,49 @@
                 }
             };
 
-            // AUTOSAVE LOGIC (Like webretro)
-            setInterval(() => {
-                if (!currentSaveKey || !player.emscripten) return;
-                try {
-                    const data = player.emscripten.FS.readFile('/save.sav');
-                    if (data && data.length > 0) {
-                        localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                        saveInfo.innerText = "Autosaved to browser...";
-                        saveInfo.style.color = "#50fa7b";
-                        setTimeout(() => { if(saveInfo.innerText === "Autosaved to browser...") saveInfo.innerText = "Ready"; }, 2000);
-                    }
-                } catch(e) { /* Game hasn't created a save file yet */ }
-            }, 10000); 
+            // SEARCH ALL FILES FOR A SAVE
+            const findSaveFile = () => {
+                if (!player.emscripten || !player.emscripten.FS) return null;
+                const fs = player.emscripten.FS;
+                const files = fs.readdir('/');
+                // Look for common save names used by different cores
+                const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
+                return saveFile ? `/${saveFile}` : null;
+            };
+
+            const performSave = () => {
+                if (!currentSaveKey) return;
+                const path = findSaveFile();
+                if (path) {
+                    const data = player.emscripten.FS.readFile(path);
+                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
+                    saveInfo.innerText = "Save successfully synced to browser!";
+                    saveInfo.style.color = "#50fa7b";
+                } else {
+                    saveInfo.innerText = "No in-game save data detected yet...";
+                    saveInfo.style.color = "#ffb86c";
+                }
+            };
+
+            // CHECK EVERY 10 SECONDS
+            setInterval(performSave, 10000);
+            forceSaveBtn.onclick = () => { performSave(); forceSaveBtn.blur(); };
 
             loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
             importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
 
             exportBtn.onclick = () => {
                 exportBtn.blur();
-                try {
-                    const data = player.emscripten.FS.readFile('/save.sav');
+                const path = findSaveFile();
+                if (path) {
+                    const data = player.emscripten.FS.readFile(path);
                     const blob = new Blob([data], { type: "application/octet-stream" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = currentFileName.replace('.nds', '.sav') || 'game.sav';
+                    a.download = currentFileName.replace('.nds', '.sav');
                     a.click();
-                } catch(e) { alert("No save data found to export."); }
+                } else { alert("No save file found inside the emulator memory."); }
             };
 
             saveIn.onchange = (e) => {
@@ -199,9 +216,10 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     const uint8Array = new Uint8Array(reader.result);
+                    // Force write to the standard location
                     player.emscripten.FS.writeFile('/save.sav', uint8Array);
                     localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
-                    alert("Imported! Reload the ROM to apply.");
+                    alert("Imported! Please reload the ROM to load this save.");
                 };
                 reader.readAsArrayBuffer(file);
             };
@@ -210,7 +228,7 @@
                 const file = e.target.files[0];
                 if (!file) return;
                 currentFileName = file.name;
-                currentSaveKey = `save_${file.name}`;
+                currentSaveKey = `db_save_${file.name}`;
                 
                 try {
                     const url = URL.createObjectURL(file);
@@ -219,8 +237,9 @@
                     
                     if (savedData) {
                         const uint8Array = new Uint8Array(JSON.parse(savedData));
+                        // Some cores need the save file named exactly like the ROM
                         player.emscripten.FS.writeFile('/save.sav', uint8Array);
-                        saveInfo.innerText = "Browser save restored!";
+                        saveInfo.innerText = "Found browser save! Booting...";
                         saveInfo.style.color = "#50fa7b";
                     }
                     setTimeout(forceScale, 500);
