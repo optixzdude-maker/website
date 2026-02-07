@@ -5,95 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DS Emulator</title>
     <style>
-        body {
-            background-color: #121212;
-            color: #e0e0e0;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .emu-container {
-            width: 100%;
-            max-width: 450px;
-            aspect-ratio: 256 / 384;
-            background: #000;
-            border: 10px solid #2a2a2a;
-            border-radius: 12px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-            overflow: hidden;
-            position: relative;
-        }
-
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .emu-container { width: 100%; max-width: 450px; aspect-ratio: 256 / 384; background: #000; border: 10px solid #2a2a2a; border-radius: 12px; overflow: hidden; position: relative; }
         desmond-player { width: 100%; height: 100%; display: block; }
-
-        .ui-panel {
-            width: 100%;
-            max-width: 450px;
-            margin-top: 20px;
-            text-align: center;
-        }
-
+        .ui-panel { width: 100%; max-width: 450px; margin-top: 20px; text-align: center; }
         .button-row { display: flex; gap: 10px; margin-bottom: 15px; }
-
-        button {
-            flex: 1;
-            background: #333;
-            color: white;
-            border: 1px solid #444;
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            outline: none;
-        }
-
+        button { flex: 1; background: #333; color: white; border: 1px solid #444; padding: 12px; border-radius: 6px; cursor: pointer; }
         button:hover { background: #444; }
-        
-        h1 { margin: 10px 0; font-weight: 400; color: #888; font-size: 1.2rem; }
-
-        .controls-card {
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: 10px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            border: 1px solid #333;
-            margin-bottom: 15px;
-        }
-
-        .key {
-            background: #2d2d2d;
-            padding: 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            text-align: center;
-        }
-
+        .controls-card { background: #1e1e1e; padding: 15px; border-radius: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border: 1px solid #333; margin-bottom: 15px; }
+        .key { background: #2d2d2d; padding: 6px; border-radius: 4px; font-size: 0.75rem; text-align: center; }
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
-
-        .save-status {
-            font-size: 0.8rem;
-            margin-bottom: 10px;
-            color: #ffb86c;
-            font-style: italic;
-            min-height: 1.2em;
-        }
-
-        .file-ops {
-            display: flex;
-            gap: 10px;
-            border-top: 1px solid #333;
-            padding-top: 15px;
-        }
-
-        .file-ops button { background: #222; font-size: 0.75rem; padding: 8px; }
+        .save-status { font-size: 0.85rem; margin-bottom: 10px; color: #ffb86c; font-weight: bold; min-height: 1.2em; }
+        .file-ops { display: flex; gap: 10px; border-top: 1px solid #333; padding-top: 15px; }
     </style>
 </head>
 <body>
@@ -104,12 +27,14 @@
     
     <div class="ui-panel">
         <input type="file" id="file-selector" accept=".nds" style="display:none">
-        <input type="file" id="save-importer" accept=".sav" style="display:none">
+        <input type="file" id="save-importer" accept=".sav,.dsv" style="display:none">
         
         <div class="button-row">
             <button id="load-btn">📁 Load ROM</button>
             <button id="force-save-btn" style="background: #2d5a27;">💾 Force Sync Save</button>
         </div>
+
+        <div id="save-info" class="save-status">Status: Waiting for ROM...</div>
 
         <h1>DS Emulator</h1>
 
@@ -125,8 +50,6 @@
             <div class="key">SELECT <b>SHIFT</b></div>
         </div>
 
-        <div id="save-info" class="save-status">Waiting for ROM...</div>
-
         <div class="file-ops">
             <button id="export-btn">📤 Export .sav Backup</button>
             <button id="import-btn">📥 Import .sav File</button>
@@ -140,16 +63,15 @@
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
             const saveIn = document.getElementById('save-importer');
-            const loadBtn = document.getElementById('load-btn');
-            const forceSaveBtn = document.getElementById('force-save-btn');
-            const exportBtn = document.getElementById('export-btn');
-            const importBtn = document.getElementById('import-btn');
             const saveInfo = document.getElementById('save-info');
             
-            let currentFileName = "";
             let currentSaveKey = "";
 
-            // RE-ENABLE SYSTEM KEYS
+            const log = (msg, color = "white") => {
+                console.log(`%c[WEBSITE] ${msg}`, `color: ${color}; font-weight: bold;`);
+            };
+
+            // Aggressive capture for volume/fullscreen to override emulator
             window.addEventListener('keydown', (e) => {
                 const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'F4', 'Fullscreen', 'F11'];
                 if (systemKeys.includes(e.key) || (e.keyCode >= 112 && e.keyCode <= 123)) {
@@ -157,57 +79,71 @@
                 }
             }, { capture: true });
 
-            const forceScale = () => {
-                if (player.shadowRoot) {
-                    const style = document.createElement('style');
-                    style.textContent = `canvas { width: 100% !important; height: 100% !important; object-fit: contain; image-rendering: pixelated; }`;
-                    player.shadowRoot.appendChild(style);
-                }
-            };
-
-            // SEARCH ALL FILES FOR A SAVE
-            const findSaveFile = () => {
-                if (!player.emscripten || !player.emscripten.FS) return null;
-                const fs = player.emscripten.FS;
-                const files = fs.readdir('/');
-                // Look for common save names used by different cores
-                const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
-                return saveFile ? `/${saveFile}` : null;
-            };
-
-            const performSave = () => {
+            const trySync = () => {
                 if (!currentSaveKey) return;
-                const path = findSaveFile();
-                if (path) {
-                    const data = player.emscripten.FS.readFile(path);
-                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                    saveInfo.innerText = "Save successfully synced to browser!";
-                    saveInfo.style.color = "#50fa7b";
-                } else {
-                    saveInfo.innerText = "No in-game save data detected yet...";
-                    saveInfo.style.color = "#ffb86c";
+                log("Checking emulator memory for save files...");
+                
+                try {
+                    const fs = player.emscripten.FS;
+                    const files = fs.readdir('/');
+                    const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
+
+                    if (saveFile) {
+                        const data = fs.readFile('/' + saveFile);
+                        localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
+                        log(`SUCCESS! Saved ${saveFile} to browser storage.`, "#50fa7b");
+                        saveInfo.innerText = "Status: Save successfully synced!";
+                        saveInfo.style.color = "#50fa7b";
+                    } else {
+                        log("No .sav or .dsv found in root directory yet.", "#ffb86c");
+                        saveInfo.innerText = "Status: No in-game save detected yet...";
+                    }
+                } catch(e) {
+                    log("Emulator filesystem not ready yet.", "#ff5555");
                 }
             };
 
-            // CHECK EVERY 10 SECONDS
-            setInterval(performSave, 10000);
-            forceSaveBtn.onclick = () => { performSave(); forceSaveBtn.blur(); };
+            // Auto-check every 15 seconds
+            setInterval(trySync, 15000);
 
-            loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
-            importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
+            document.getElementById('force-save-btn').onclick = () => {
+                log("MANUAL SYNC TRIGGERED");
+                trySync();
+                document.getElementById('force-save-btn').blur();
+            };
 
-            exportBtn.onclick = () => {
-                exportBtn.blur();
-                const path = findSaveFile();
-                if (path) {
-                    const data = player.emscripten.FS.readFile(path);
-                    const blob = new Blob([data], { type: "application/octet-stream" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = currentFileName.replace('.nds', '.sav');
-                    a.click();
-                } else { alert("No save file found inside the emulator memory."); }
+            document.getElementById('load-btn').onclick = () => fileIn.click();
+            document.getElementById('import-btn').onclick = () => saveIn.click();
+
+            document.getElementById('export-btn').onclick = () => {
+                try {
+                    const fs = player.emscripten.FS;
+                    const files = fs.readdir('/');
+                    const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
+                    if (saveFile) {
+                        const data = fs.readFile('/' + saveFile);
+                        const blob = new Blob([data], { type: "application/octet-stream" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = saveFile; a.click();
+                    }
+                } catch(e) { alert("No save file found to export."); }
+            };
+
+            fileIn.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                currentSaveKey = `ds_save_${file.name}`;
+                log(`Loading ROM: ${file.name}`);
+                
+                try {
+                    await player.loadURL(URL.createObjectURL(file));
+                    const savedData = localStorage.getItem(currentSaveKey);
+                    if (savedData) {
+                        log("Found existing browser save. Injecting...", "#50fa7b");
+                        player.emscripten.FS.writeFile('/save.sav', new Uint8Array(JSON.parse(savedData)));
+                    }
+                } catch (err) { log("Failed to load ROM", "#ff5555"); }
             };
 
             saveIn.onchange = (e) => {
@@ -215,38 +151,14 @@
                 if (!file || !currentSaveKey) return;
                 const reader = new FileReader();
                 reader.onload = () => {
-                    const uint8Array = new Uint8Array(reader.result);
-                    // Force write to the standard location
-                    player.emscripten.FS.writeFile('/save.sav', uint8Array);
-                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
+                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(new Uint8Array(reader.result))));
+                    log("Manual file imported to browser storage.", "#50fa7b");
                     alert("Imported! Please reload the ROM to load this save.");
                 };
                 reader.readAsArrayBuffer(file);
             };
 
-            fileIn.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                currentFileName = file.name;
-                currentSaveKey = `db_save_${file.name}`;
-                
-                try {
-                    const url = URL.createObjectURL(file);
-                    const savedData = localStorage.getItem(currentSaveKey);
-                    await player.loadURL(url);
-                    
-                    if (savedData) {
-                        const uint8Array = new Uint8Array(JSON.parse(savedData));
-                        // Some cores need the save file named exactly like the ROM
-                        player.emscripten.FS.writeFile('/save.sav', uint8Array);
-                        saveInfo.innerText = "Found browser save! Booting...";
-                        saveInfo.style.color = "#50fa7b";
-                    }
-                    setTimeout(forceScale, 500);
-                } catch (err) { console.error(err); }
-            };
-
-            player.onclick = () => { player.focus(); forceScale(); };
+            player.onclick = () => player.focus();
         }
     </script>
 </body>
