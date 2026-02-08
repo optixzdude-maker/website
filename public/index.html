@@ -107,6 +107,10 @@
     <script>
         {
             const player = document.getElementById('player');
+
+            /* ✅ ENABLE PERSISTENT SAVES */
+            player.saveKey = "nds-save";
+
             const fileIn = document.getElementById('file-selector');
             const status = document.getElementById('status-text');
 
