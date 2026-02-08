@@ -3,73 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DS Emulator - Fixed</title>
+    <title>NDS Scaled Emulator</title>
     <style>
-        body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
-        
-        .emu-container { 
-            width: 100%; 
-            max-width: 450px; 
-            aspect-ratio: 256 / 384; 
-            background: #000; 
-            border: 10px solid #2a2a2a; 
-            border-radius: 12px; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
-            overflow: hidden; 
-            position: relative; 
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
         }
 
-        desmond-player { width: 100%; height: 100%; display: block; }
-
-        .ui-panel { width: 100%; max-width: 450px; margin-top: 20px; text-align: center; }
-        .button-row { display: flex; gap: 10px; margin-bottom: 15px; }
-
-        button { 
-            flex: 1; 
-            background: #333; 
-            color: white; 
-            border: 1px solid #444; 
-            padding: 12px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-size: 0.85rem; 
+        /* The scaling container */
+        .emu-container {
+            width: 100%;
+            max-width: 450px; /* Resize this to make the emulator bigger/smaller */
+            aspect-ratio: 256 / 384;
+            background: #000;
+            border: 10px solid #2a2a2a;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            overflow: hidden;
+            position: relative;
         }
 
-        button:hover { background: #444; }
-        
-        .save-status { font-size: 0.8rem; margin-bottom: 10px; color: #ffb86c; font-style: italic; min-height: 1.2em; }
-        
-        .controls-card { background: #1e1e1e; padding: 15px; border-radius: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border: 1px solid #333; margin-bottom: 15px; }
-        .key { background: #2d2d2d; padding: 6px; border-radius: 4px; font-size: 0.75rem; text-align: center; }
+        desmond-player {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .ui-panel {
+            margin-top: 25px;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #00ff88;
+            margin-bottom: 15px;
+        }
+
+        /* Controller UI */
+        .controls-card {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            border: 1px solid #333;
+        }
+
+        .key {
+            background: #2d2d2d;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-align: center;
+        }
+
         .key b { color: #50fa7b; display: block; font-size: 0.9rem; }
+
+        input[type="file"] {
+            width: 100%;
+            margin-bottom: 20px;
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
 
+    <div class="status" id="status-text">Engine Ready</div>
+
     <div class="emu-container">
         <desmond-player id="player"></desmond-player>
     </div>
-    
-    <div class="ui-panel">
-        <input type="file" id="file-selector" accept=".nds" style="display:none">
-        
-        <div class="button-row">
-            <button id="load-btn">📁 Load ROM</button>
-            <button id="save-state-btn" style="background: #2d5a27;">💾 Save Game (State)</button>
-        </div>
 
-        <div id="save-info" class="save-status">Status: Waiting for ROM...</div>
+    <div class="ui-panel">
+        <input type="file" id="file-selector" accept=".nds">
 
         <div class="controls-card">
             <div class="key">DPAD <b>ARROWS</b></div>
-            <div class="key">A <b>X</b></div>
-            <div class="key">B <b>Z</b></div>
+            <div class="key">A <b>Z</b></div>
+            <div class="key">B <b>X</b></div>
             <div class="key">X <b>S</b></div>
             <div class="key">Y <b>A</b></div>
-            <div class="key">MIC <b>R</b></div>
             <div class="key">L / R <b>Q / W</b></div>
             <div class="key">START <b>ENTER</b></div>
             <div class="key">SELECT <b>SHIFT</b></div>
+            <div class="key">MIC <b>R</b></div>
         </div>
     </div>
 
@@ -79,77 +108,51 @@
         {
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
-            const saveInfo = document.getElementById('save-info');
-            const saveBtn = document.getElementById('save-state-btn');
-            
-            let romIsReady = false;
+            const status = document.getElementById('status-text');
 
-            const log = (msg, color = "white") => {
-                console.log(`%c[WEBSITE] ${msg}`, `color: ${color}; font-weight: bold;`);
-            };
-
+            // --- THE MAGIC FIX FOR SCALING ---
+            // This function forces the internal canvas to stretch
             const forceScale = () => {
                 if (player.shadowRoot) {
                     const style = document.createElement('style');
-                    style.textContent = `canvas { width: 100% !important; height: 100% !important; object-fit: contain; image-rendering: pixelated; }`;
+                    style.textContent = `
+                        canvas { 
+                            width: 100% !important; 
+                            height: 100% !important; 
+                            object-fit: contain; 
+                            image-rendering: pixelated;
+                        }
+                    `;
                     player.shadowRoot.appendChild(style);
                 }
             };
 
-            // SAFE SAVE LOGIC
-            saveBtn.onclick = async () => {
-                if (!romIsReady) return;
-                saveInfo.innerText = "Status: Saving...";
-                
-                try {
-                    // Force the emulator to finalize its current memory state
-                    const state = await player.saveState();
-                    const buffer = await state.arrayBuffer();
-                    const serialized = JSON.stringify(Array.from(new Uint8Array(buffer)));
-                    
-                    localStorage.setItem('ds_manual_state', serialized);
-                    
-                    saveInfo.innerText = "Status: Saved Successfully!";
-                    saveInfo.style.color = "#50fa7b";
-                    log("SUCCESS: State written to LocalStorage", "#50fa7b");
-                } catch (e) {
-                    log("SAVE ERROR: Emulator was busy or state failed.", "#ff5555");
-                    saveInfo.innerText = "Status: Save failed. Try again in 5 seconds.";
-                }
-            };
-
-            document.getElementById('load-btn').onclick = () => fileIn.click();
-
             fileIn.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
+
+                status.innerText = "Loading " + file.name + "...";
                 
                 try {
-                    await player.loadURL(URL.createObjectURL(file));
-                    log(`ROM Loaded: ${file.name}`);
+                    const url = URL.createObjectURL(file);
+                    await player.loadURL(url);
                     
-                    // Give the engine 3 seconds to fully initialize the database and memory
-                    setTimeout(async () => {
-                        romIsReady = true;
-                        forceScale();
-                        
-                        const savedState = localStorage.getItem('ds_manual_state');
-                        if (savedState) {
-                            log("Found previous state. Loading...");
-                            const bytes = new Uint8Array(JSON.parse(savedState));
-                            const blob = new Blob([bytes]);
-                            await player.loadState(blob);
-                            saveInfo.innerText = "Status: Game Restored!";
-                            saveInfo.style.color = "#50fa7b";
-                        } else {
-                            saveInfo.innerText = "Status: No previous save found.";
-                        }
-                    }, 3000); 
-
-                } catch (err) { log("Load error: " + err, "#ff5555"); }
+                    // Apply scaling fix after the game starts
+                    forceScale(); 
+                    
+                    status.innerText = "Running: " + file.name;
+                    player.focus();
+                } catch (err) {
+                    status.innerText = "Error loading ROM.";
+                    console.error(err);
+                }
             };
 
-            player.onclick = () => { player.focus(); forceScale(); };
+            // Fix focus on click
+            player.onclick = () => {
+                player.focus();
+                forceScale(); // Run again just in case
+            };
         }
     </script>
 </body>
