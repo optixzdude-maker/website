@@ -153,107 +153,69 @@
                 console.log(`%c[WEBSITE] ${msg}`, `color: ${color}; font-weight: bold;`);
             };
 
-            // AGGRESSIVE SYSTEM KEY BYPASS
-            window.addEventListener('keydown', (e) => {
-                const systemKeys = ['AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute', 'F4', 'Fullscreen', 'F11'];
-                if (systemKeys.includes(e.key) || (e.keyCode >= 112 && e.keyCode <= 123)) {
-                    e.stopImmediatePropagation();
-                }
-            }, { capture: true });
-
+            // Fix scaling when clicked or loaded
             const forceScale = () => {
                 if (player.shadowRoot) {
                     const style = document.createElement('style');
                     style.textContent = `canvas { width: 100% !important; height: 100% !important; object-fit: contain; image-rendering: pixelated; }`;
                     player.shadowRoot.appendChild(style);
-                    log("Scaling applied", "#50fa7b");
                 }
             };
 
-            // RECURSIVE SEARCH FOR SAVE FILES
-            const findSaveFile = (dir = '/') => {
+            // SEARCH FOR SAVES
+            const findSavePath = () => {
                 if (!player.emscripten || !player.emscripten.FS) return null;
                 const fs = player.emscripten.FS;
-                try {
-                    const items = fs.readdir(dir);
-                    for (const item of items) {
-                        if (item === "." || item === "..") continue;
-                        const fullPath = dir === '/' ? `/${item}` : `${dir}/${item}`;
-                        
-                        if (item.toLowerCase().endsWith('.sav') || item.toLowerCase().endsWith('.dsv')) {
-                            return fullPath;
-                        }
-
-                        try {
-                            const stat = fs.stat(fullPath);
-                            if (fs.isDir(stat.mode)) {
-                                const found = findSaveFile(fullPath);
-                                if (found) return found;
-                            }
-                        } catch(e) {}
-                    }
-                } catch(e) {}
-                return null;
+                const files = fs.readdir('/');
+                // DeSmuME often uses .dsv for internal saves
+                const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
+                return saveFile ? `/${saveFile}` : null;
             };
 
             const performSave = () => {
-                if (!currentSaveKey) return;
-                log("Syncing check initiated...");
+                if (!currentSaveKey || !player.emscripten) return;
                 
-                const path = findSaveFile();
-                if (path) {
-                    try {
+                log("Attempting Memory Sync...");
+                
+                try {
+                    // This is the secret step: 
+                    // Tell the emulator to flush its backup RAM to the virtual disk
+                    if (player.emscripten._write_save) {
+                        player.emscripten._write_save();
+                        log("Called internal _write_save()", "#50fa7b");
+                    }
+
+                    const path = findSavePath();
+                    if (path) {
                         const data = player.emscripten.FS.readFile(path);
-                        if (data && data.length > 0) {
-                            localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                            saveInfo.innerText = "Save successfully synced to browser!";
-                            saveInfo.style.color = "#50fa7b";
-                            log(`SUCCESS: Found and saved ${path} (${data.length} bytes)`, "#50fa7b");
-                        }
-                    } catch(e) { log("Error reading save file", "#ff5555"); }
-                } else {
-                    saveInfo.innerText = "No in-game save data detected yet...";
-                    saveInfo.style.color = "#ffb86c";
-                    log("SCAN: No .sav or .dsv files found in virtual memory.", "#ffb86c");
+                        localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
+                        saveInfo.innerText = "Save successfully synced!";
+                        saveInfo.style.color = "#50fa7b";
+                        log(`SUCCESS: Found ${path} and synced to browser.`, "#50fa7b");
+                    } else {
+                        log("Still no file found. Ensure you finished the in-game save menu.", "#ffb86c");
+                    }
+                } catch(e) {
+                    log("Sync failed: " + e.message, "#ff5555");
                 }
             };
 
-            setInterval(performSave, 15000); // Auto-sync every 15s
-            
-            forceSaveBtn.onclick = () => { 
-                log("Manual Force Sync clicked");
-                performSave(); 
-                forceSaveBtn.blur(); 
-            };
+            setInterval(performSave, 20000); // Auto-sync every 20s
+            forceSaveBtn.onclick = () => { log("Manual Sync Triggered"); performSave(); forceSaveBtn.blur(); };
 
-            loadBtn.onclick = () => { fileIn.click(); loadBtn.blur(); };
-            importBtn.onclick = () => { saveIn.click(); importBtn.blur(); };
+            loadBtn.onclick = () => fileIn.click();
+            importBtn.onclick = () => saveIn.click();
 
             exportBtn.onclick = () => {
-                exportBtn.blur();
-                const path = findSaveFile();
+                const path = findSavePath();
                 if (path) {
                     const data = player.emscripten.FS.readFile(path);
                     const blob = new Blob([data], { type: "application/octet-stream" });
-                    const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.href = url;
+                    a.href = URL.createObjectURL(blob);
                     a.download = currentFileName.split('.')[0] + ".sav";
                     a.click();
-                } else { alert("No save file found inside memory."); }
-            };
-
-            saveIn.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file || !currentSaveKey) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const uint8Array = new Uint8Array(reader.result);
-                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(uint8Array)));
-                    log("External save imported to browser storage", "#50fa7b");
-                    alert("Imported! Please reload the ROM to load this save.");
-                };
-                reader.readAsArrayBuffer(file);
+                } else { alert("No save file found in memory."); }
             };
 
             fileIn.onchange = async (e) => {
@@ -261,24 +223,33 @@
                 if (!file) return;
                 currentFileName = file.name;
                 currentSaveKey = `db_save_${file.name}`;
-                log(`Loading ROM: ${file.name}`);
                 
                 try {
-                    const url = URL.createObjectURL(file);
+                    await player.loadURL(URL.createObjectURL(file));
                     const savedData = localStorage.getItem(currentSaveKey);
-                    await player.loadURL(url);
                     
-                    // Delay injection to ensure emulator filesystem is mounted
                     setTimeout(() => {
                         if (savedData && player.emscripten && player.emscripten.FS) {
-                            log("Injecting browser save...", "#50fa7b");
-                            player.emscripten.FS.writeFile('/save.sav', new Uint8Array(JSON.parse(savedData)));
-                            saveInfo.innerText = "Found browser save! Booting...";
-                            saveInfo.style.color = "#50fa7b";
+                            // Inject into the two most common locations
+                            const data = new Uint8Array(JSON.parse(savedData));
+                            player.emscripten.FS.writeFile('/save.sav', data);
+                            player.emscripten.FS.writeFile('/save.dsv', data);
+                            log("Browser save injected into emulator memory.", "#50fa7b");
                         }
                         forceScale();
                     }, 1500);
                 } catch (err) { log("Load error", "#ff5555"); }
+            };
+
+            saveIn.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file || !currentSaveKey) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(new Uint8Array(reader.result))));
+                    alert("Imported! Reload ROM to apply.");
+                };
+                reader.readAsArrayBuffer(file);
             };
 
             player.onclick = () => { player.focus(); forceScale(); };
