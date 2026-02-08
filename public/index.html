@@ -111,7 +111,7 @@
             <button id="force-save-btn" style="background: #2d5a27;">💾 Force Sync Save</button>
         </div>
 
-        <h1>DS Emulator</h1>
+        <div id="save-info" class="save-status">Waiting for ROM...</div>
 
         <div class="controls-card">
             <div class="key">DPAD <b>ARROWS</b></div>
@@ -124,8 +124,6 @@
             <div class="key">START <b>ENTER</b></div>
             <div class="key">SELECT <b>SHIFT</b></div>
         </div>
-
-        <div id="save-info" class="save-status">Waiting for ROM...</div>
 
         <div class="file-ops">
             <button id="export-btn">📤 Export .sav Backup</button>
@@ -140,20 +138,14 @@
             const player = document.getElementById('player');
             const fileIn = document.getElementById('file-selector');
             const saveIn = document.getElementById('save-importer');
-            const loadBtn = document.getElementById('load-btn');
-            const forceSaveBtn = document.getElementById('force-save-btn');
-            const exportBtn = document.getElementById('export-btn');
-            const importBtn = document.getElementById('import-btn');
             const saveInfo = document.getElementById('save-info');
             
-            let currentFileName = "";
             let currentSaveKey = "";
 
             const log = (msg, color = "white") => {
                 console.log(`%c[WEBSITE] ${msg}`, `color: ${color}; font-weight: bold;`);
             };
 
-            // Fix scaling when clicked or loaded
             const forceScale = () => {
                 if (player.shadowRoot) {
                     const style = document.createElement('style');
@@ -162,67 +154,45 @@
                 }
             };
 
-            // SEARCH FOR SAVES
-            const findSavePath = () => {
-                if (!player.emscripten || !player.emscripten.FS) return null;
-                const fs = player.emscripten.FS;
-                const files = fs.readdir('/');
-                // DeSmuME often uses .dsv for internal saves
-                const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
-                return saveFile ? `/${saveFile}` : null;
-            };
-
-            const performSave = () => {
-                if (!currentSaveKey || !player.emscripten) return;
+            const performSync = () => {
+                if (!currentSaveKey || !player.emscripten || !player.emscripten.FS) return;
                 
-                log("Attempting Memory Sync...");
-                
+                log("Syncing check initiated...");
                 try {
-                    // This is the secret step: 
-                    // Tell the emulator to flush its backup RAM to the virtual disk
-                    if (player.emscripten._write_save) {
-                        player.emscripten._write_save();
-                        log("Called internal _write_save()", "#50fa7b");
-                    }
+                    const fs = player.emscripten.FS;
+                    const files = fs.readdir('/');
+                    // Look for anything ending in .sav or .dsv
+                    const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
 
-                    const path = findSavePath();
-                    if (path) {
-                        const data = player.emscripten.FS.readFile(path);
+                    if (saveFile) {
+                        const data = fs.readFile('/' + saveFile);
                         localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(data)));
-                        saveInfo.innerText = "Save successfully synced!";
+                        saveInfo.innerText = "Status: Save Synced!";
                         saveInfo.style.color = "#50fa7b";
-                        log(`SUCCESS: Found ${path} and synced to browser.`, "#50fa7b");
+                        log(`SUCCESS: Found ${saveFile} and synced.`, "#50fa7b");
                     } else {
-                        log("Still no file found. Ensure you finished the in-game save menu.", "#ffb86c");
+                        log("No save file found in root.", "#ffb86c");
+                        saveInfo.innerText = "Status: No save file detected.";
                     }
-                } catch(e) {
-                    log("Sync failed: " + e.message, "#ff5555");
-                }
+                } catch(e) { log("FS Error: " + e.message, "#ff5555"); }
             };
 
-            setInterval(performSave, 20000); // Auto-sync every 20s
-            forceSaveBtn.onclick = () => { log("Manual Sync Triggered"); performSave(); forceSaveBtn.blur(); };
+            setInterval(performSync, 20000);
 
-            loadBtn.onclick = () => fileIn.click();
-            importBtn.onclick = () => saveIn.click();
-
-            exportBtn.onclick = () => {
-                const path = findSavePath();
-                if (path) {
-                    const data = player.emscripten.FS.readFile(path);
-                    const blob = new Blob([data], { type: "application/octet-stream" });
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = currentFileName.split('.')[0] + ".sav";
-                    a.click();
-                } else { alert("No save file found in memory."); }
+            document.getElementById('force-save-btn').onclick = () => {
+                log("Force Sync Button Clicked");
+                performSync();
+                document.getElementById('force-save-btn').blur();
             };
+
+            document.getElementById('load-btn').onclick = () => fileIn.click();
+            document.getElementById('import-btn').onclick = () => saveIn.click();
 
             fileIn.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                currentFileName = file.name;
-                currentSaveKey = `db_save_${file.name}`;
+                currentSaveKey = `ds_save_${file.name}`;
+                log(`Loading ROM: ${file.name}`);
                 
                 try {
                     await player.loadURL(URL.createObjectURL(file));
@@ -230,15 +200,34 @@
                     
                     setTimeout(() => {
                         if (savedData && player.emscripten && player.emscripten.FS) {
-                            // Inject into the two most common locations
                             const data = new Uint8Array(JSON.parse(savedData));
+                            // Write to both just in case
                             player.emscripten.FS.writeFile('/save.sav', data);
                             player.emscripten.FS.writeFile('/save.dsv', data);
-                            log("Browser save injected into emulator memory.", "#50fa7b");
+                            log("Browser save injected.", "#50fa7b");
+                            saveInfo.innerText = "Status: Save Restored!";
+                            saveInfo.style.color = "#50fa7b";
+                        } else {
+                            saveInfo.innerText = "Status: No previous save found.";
                         }
                         forceScale();
                     }, 1500);
                 } catch (err) { log("Load error", "#ff5555"); }
+            };
+
+            document.getElementById('export-btn').onclick = () => {
+                if (!player.emscripten) return;
+                const fs = player.emscripten.FS;
+                const files = fs.readdir('/');
+                const saveFile = files.find(f => f.endsWith('.sav') || f.endsWith('.dsv'));
+                if (saveFile) {
+                    const data = fs.readFile('/' + saveFile);
+                    const blob = new Blob([data], { type: "application/octet-stream" });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "game_save.sav";
+                    a.click();
+                }
             };
 
             saveIn.onchange = (e) => {
@@ -247,7 +236,7 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     localStorage.setItem(currentSaveKey, JSON.stringify(Array.from(new Uint8Array(reader.result))));
-                    alert("Imported! Reload ROM to apply.");
+                    alert("Imported! Reload ROM.");
                 };
                 reader.readAsArrayBuffer(file);
             };
