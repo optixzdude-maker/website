@@ -5,71 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DS Emulator</title>
     <style>
-        body { 
-            margin: 0; padding: 0; background-color: #000; 
-            height: 100vh; display: flex; align-items: center; 
-            justify-content: center; overflow: hidden;
-        }
-        #file-selector { 
-            text-align: center; color: white; font-family: sans-serif; 
-            border: 1px solid #333; padding: 40px; border-radius: 8px;
-        }
-        #game-container { width: 100%; height: 100%; display: none; }
-        #game { width: 100%; height: 100%; }
-
-        /* Performance/Visual Fix */
-        canvas {
-            image-rendering: pixelated;
-            display: block !important;
-        }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        #file-selector { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #333; padding: 30px; text-align: center; background: #111; z-index: 999; border-radius: 8px; }
+        #game-container { width: 100vw; height: 100vh; position: relative; visibility: visible !important; }
+        #game { width: 100%; height: 100%; display: block !important; }
+        canvas { display: block !important; image-rendering: pixelated; }
     </style>
 </head>
 <body>
 
-    <div id="file-selector">
-        <h2 style="margin-top:0">DS Loader</h2>
-        <input type="file" id="rom-input" accept=".nds">
-    </div>
+<div id="file-selector">
+    <h2 style="margin-top:0">DS ROM Loader</h2>
+    <input type="file" id="rom-input" accept=".nds">
+</div>
 
-    <div id="game-container">
-        <div id="game"></div>
-    </div>
+<div id="game-container">
+    <div id="game"></div>
+</div>
 
-    <script type="text/javascript">
-        const romInput = document.getElementById('rom-input');
-        const selector = document.getElementById('file-selector');
-        const container = document.getElementById('game-container');
+<script>
+    document.getElementById('rom-input').onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        romInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        window.EJS_player = '#game';
+        window.EJS_core = 'nds';
+        window.EJS_loadCore = 'desmume2015';
+        window.EJS_gameUrl = URL.createObjectURL(file);
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+        
+        // COMBINED BYPASS SETTINGS
+        window.EJS_startOnLoaded = true;
+        window.EJS_DEBUG_XX = true;
+        window.EJS_forceWgl1 = true; 
+        window.EJS_softrender = true; 
+        
+        document.getElementById('file-selector').style.display = 'none';
 
-            window.EJS_player = '#game';
-            window.EJS_core = 'nds';
-            window.EJS_loadCore = 'desmume2015';
-            window.EJS_gameUrl = URL.createObjectURL(file);
-            window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-            window.EJS_startOnLoaded = true;
-            
-            selector.style.display = 'none';
-            container.style.display = 'block';
-
-            const loader = document.createElement('script');
-            loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-            
-            loader.onload = function() {
-                // THE SCALE FLICKER FIX
-                // Forces Chromebook GPU to stay active
-                setInterval(() => {
-                    const cvs = document.querySelector('canvas');
-                    if (cvs) {
-                        cvs.style.transform = cvs.style.transform === "scale(1)" ? "scale(1.0001)" : "scale(1)";
-                    }
-                }, 500);
-            };
-
-            document.body.appendChild(loader);
-        });
-    </script>
+        const loader = document.createElement('script');
+        loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+        
+        document.body.appendChild(loader);
+    };
+</script>
 </body>
 </html>
