@@ -48,32 +48,31 @@
     </div>
 
     <script type="text/javascript">
-        const romInput = document.getElementById('rom-input');
-        const selector = document.getElementById('file-selector');
-        const container = document.getElementById('game-container');
-
-        romInput.addEventListener('change', function(e) {
+            romInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
-            // Create a temporary URL for the local file
+        
             const blobUrl = URL.createObjectURL(file);
-
-            // Configure EmulatorJS
+        
+            // Set configuration
             window.EJS_player = '#game';
             window.EJS_core = 'nds';
-            window.EJS_loadCore = 'desmume2015';
-            window.EJS_gameUrl = blobUrl; // Use the local file URL
+            window.EJS_loadCore = 'desmume2015'; // Note: 'melonds' is often faster on low-end hardware
+            window.EJS_gameUrl = blobUrl;
             window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
             
-            // Hide the selector and show the game
+            // UI Update
             selector.style.display = 'none';
             container.style.display = 'block';
-
-            // Load the engine script dynamically
-            const loader = document.createElement('script');
-            loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-            document.body.appendChild(loader);
+        
+            // Force a small timeout to let the UI render before the heavy JS load starts
+            setTimeout(() => {
+                const loader = document.createElement('script');
+                loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+                loader.async = true;
+                document.body.appendChild(loader);
+            }, 100);
+        });
         });
     </script>
 </body>
