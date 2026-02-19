@@ -3,63 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DS Emulator - melonDS Edition</title>
+    <title>DS Emulator - Auto-Start Edition</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #1a1a1a;
-            color: white;
+            margin: 0; padding: 0;
+            background-color: #1a1a1a; color: white;
             font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 100vh; overflow: hidden;
         }
         #file-selector {
-            z-index: 10;
-            text-align: center;
-            padding: 20px;
-            border: 2px dashed #555;
-            border-radius: 10px;
-            background: #252525;
+            z-index: 10; text-align: center;
+            padding: 20px; border: 2px dashed #555;
+            border-radius: 10px; background: #252525;
         }
-        #game-container {
-            width: 100%;
-            height: 100%;
-            display: none;
-        }
-        #game {
-            width: 100%;
-            height: 100%;
-        }
-        /* Virtual Console for Blocked Chromebooks */
+        #game-container { width: 100%; height: 100%; display: none; }
+        #game { width: 100%; height: 100%; }
+        
+        /* Debug Console */
         #debug-log {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            max-height: 150px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #0f0;
-            font-family: monospace;
-            font-size: 12px;
-            overflow-y: auto;
-            z-index: 9999;
-            pointer-events: none;
-            padding: 5px;
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            max-height: 100px; background: rgba(0,0,0,0.8);
+            color: #0f0; font-family: monospace; font-size: 11px;
+            overflow-y: auto; z-index: 9999; padding: 5px;
+            border-top: 1px solid #444;
+        }
+        .force-btn {
+            background: #e67e22; color: white; border: none;
+            padding: 5px 10px; cursor: pointer; margin-left: 10px;
+            border-radius: 3px; font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-    <div id="debug-log">Log: Ready...</div>
+    <div id="debug-log">
+        <span>Log: Ready...</span>
+        <button class="force-btn" onclick="forceStart()">FORCE START EMULATOR</button>
+    </div>
 
     <div id="file-selector">
-        <h2>DS ROM Loader (melonDS)</h2>
-        <p>Select a .nds file to start</p>
+        <h2>DS ROM Loader</h2>
+        <p>Select your .nds file</p>
         <input type="file" id="rom-input" accept=".nds,.zip">
     </div>
 
@@ -68,13 +54,23 @@
     </div>
 
     <script type="text/javascript">
-        // --- VIRTUAL CONSOLE WORKAROUND ---
         const logger = document.getElementById('debug-log');
         function log(msg) {
-            logger.innerHTML += '<br>> ' + msg;
-            console.log(msg);
+            const span = document.createElement('div');
+            span.textContent = "> " + msg;
+            logger.appendChild(span);
+            logger.scrollTop = logger.scrollHeight;
         }
-        window.onerror = (m, u, l) => log(`ERR: ${m} at line ${l}`);
+
+        // Global function to try and kickstart the engine if it hangs
+        function forceStart() {
+            log("Attempting force start...");
+            if (window.EJS_emulator) {
+                window.EJS_emulator.start();
+            } else {
+                log("Emulator object not found yet.");
+            }
+        }
 
         const romInput = document.getElementById('rom-input');
         const selector = document.getElementById('file-selector');
@@ -84,33 +80,41 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            log("File selected: " + file.name);
-
-            // Create a temporary URL for the local file
+            log("File: " + file.name);
             const blobUrl = URL.createObjectURL(file);
 
-            // Configure EmulatorJS for melonDS
+            // EMULATOR CONFIGURATION
             window.EJS_player = '#game';
             window.EJS_core = 'nds';
-            window.EJS_loadCore = 'melonds'; // Faster for Chromebooks
+            window.EJS_loadCore = 'melonds'; 
             window.EJS_gameUrl = blobUrl;
             window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
             
-            // UI Switch
+            // --- THE FIX: AUTO START ---
+            window.EJS_startOnLoaded = true; // Skips the big 'Start' button
+            window.EJS_DEBUG_XX = true;      // Enables internal debugging
+            
             selector.style.display = 'none';
             container.style.display = 'block';
 
-            log("Loading engine... please wait.");
+            log("Core: melonDS | Status: Initializing...");
 
-            // Load the engine script with a small delay
-            setTimeout(() => {
-                const loader = document.createElement('script');
-                loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-                loader.onload = () => log("Engine loaded.");
-                loader.onerror = () => log("FATAL: Failed to load loader.js. CDN might be blocked.");
-                document.body.appendChild(loader);
-            }, 200);
+            const loader = document.createElement('script');
+            loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+            
+            loader.onload = () => {
+                log("Loader.js loaded. Game should start momentarily.");
+            };
+            
+            loader.onerror = () => {
+                log("FATAL: CDN Blocked. You may need to host files locally.");
+            };
+
+            document.body.appendChild(loader);
         });
+
+        // Error catching
+        window.onerror = (m, u, l) => log(`Error: ${m} (Line ${l})`);
     </script>
 </body>
 </html>
