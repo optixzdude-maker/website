@@ -6,39 +6,20 @@
     <title>DS Emulator</title>
     <style>
         body { 
-            margin: 0; 
-            padding: 0; 
-            background-color: #000; 
-            height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            overflow: hidden;
+            margin: 0; padding: 0; background-color: #000; 
+            height: 100vh; display: flex; align-items: center; 
+            justify-content: center; overflow: hidden;
         }
         #file-selector { 
-            text-align: center; 
-            color: white; 
-            font-family: sans-serif; 
-            border: 1px solid #333; 
-            padding: 40px; 
-            border-radius: 8px;
+            text-align: center; color: white; font-family: sans-serif; 
+            border: 1px solid #333; padding: 40px; border-radius: 8px;
         }
-        #game-container { 
-            width: 100%; 
-            height: 100%; 
-            display: none; 
-        }
-        #game { 
-            width: 100%; 
-            height: 100%; 
-        }
+        #game-container { width: 100%; height: 100%; display: none; }
+        #game { width: 100%; height: 100%; }
 
-        /* THE FIX: Forces the browser to render pixels raw without smoothing */
+        /* Performance/Visual Fix */
         canvas {
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-optimize-contrast;
             image-rendering: pixelated;
-            image-rendering: optimizeSpeed;
             display: block !important;
         }
     </style>
@@ -68,7 +49,6 @@
             window.EJS_loadCore = 'desmume2015';
             window.EJS_gameUrl = URL.createObjectURL(file);
             window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-            
             window.EJS_startOnLoaded = true;
             
             selector.style.display = 'none';
@@ -76,6 +56,18 @@
 
             const loader = document.createElement('script');
             loader.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+            
+            loader.onload = function() {
+                // THE SCALE FLICKER FIX
+                // Forces Chromebook GPU to stay active
+                setInterval(() => {
+                    const cvs = document.querySelector('canvas');
+                    if (cvs) {
+                        cvs.style.transform = cvs.style.transform === "scale(1)" ? "scale(1.0001)" : "scale(1)";
+                    }
+                }, 500);
+            };
+
             document.body.appendChild(loader);
         });
     </script>
